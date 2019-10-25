@@ -1,0 +1,36 @@
+#!/bin/sh
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+# vim: tabstop=4 shiftwidth=4 noexpandtab
+set -e
+
+log ()
+{
+	if [ "$#" -eq 0 ]
+	then
+		read -r line
+		printf -- '\e[33m----> %s\e[m\n' "$line" >&2
+		while read -r line
+		do
+			printf -- '\e[33m      %s\e[m\n' "$line" >&2
+		done
+	else
+		echo "$*" | log
+	fi
+}
+
+if [ -z "${PROSIDY_SKIP_HOOKS:-}" ]
+then
+	log <<-'EOF'
+		Running pre-push checks...
+		(to disable, run `export PROSIDY_SKIP_HOOKS=1`)
+	EOF
+	cargo test
+	log 'All checks completed successfully!'
+else
+	log <<-'EOF'
+		Skipping pre-push checks becase PROSIDY_SKIP_HOOKS is set
+		(to re-enable hooks, run `unset PROSIDY_SKIP_HOOKS`)
+	EOF
+fi

@@ -1,0 +1,29 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+[package]
+name = "prosidy-cli"
+version = "0.1.0"
+authors = ["Alex Feldman-Crough <alex@fldcr.com>"]
+edition = "2018"
+license = "MPL-2.0"
+
+[[bin]]
+name = "prosidy"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0"
+env_logger = "0.7"
+lazy_static = "1.4"
+log = "0.4"
+structopt = "0.3"
+xml-rs = "0.8"
+
+serde = "1.0"
+serde_json = "1.0"
+serde_cbor = "0.10"
+
+[dependencies.prosidy]
+path = "../prosidy"

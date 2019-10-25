@@ -1,0 +1,20 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+[package]
+name = "prosidy"
+version = "0.1.0"
+authors = ["Alex Feldman-Crough <alex@fldcr.com>"]
+edition = "2018"
+license = "MPL-2.0"
+
+[dependencies]
+
+[dependencies.ast]
+path = "../ast"
+package = "prosidy-ast"
+
+[dependencies.parse]
+path = "../parse"
+package = "prosidy-parse"

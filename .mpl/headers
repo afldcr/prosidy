@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname $BASH_SOURCE)/.."
+command="$0"
+
+RG="${RG:-rg}"
+RGFLAGS=(
+    '--ignore-file'
+    '.mpl/ignore'
+    '--files-without-match'
+    'https://mozilla.org/MPL/2.0'
+)
+
+if ! command -v "$RG" >/dev/null 2>&1
+then
+    echo 'ripgrep is not installed; install it with `cargo install ripgrep`' >&2
+    exit 1
+fi
+
+tmpfile="$(mktemp)"
+trap "rm $tmpfile" EXIT
+
+checkheaders()
+{
+    if "$RG" "${RGFLAGS[@]}" > "$tmpfile"
+    then
+        echo 'Error: the following files do not have an MPL License header:' >&2
+        while read -r file
+        do
+            printf '  - %s\n' "$file" >&2
+        done < "$tmpfile"
+        echo "Please run '$command add' to automatically append the headers." >&2
+        exit 1
+    fi
+}
+
+addheader()
+{
+    local filepath="${1}"
+    local extension="${filepath##*.}"
+    local headerfile=".mpl/${extension}.txt"
+    local warnvar="__warn_$extension"
+    if [ -e "$headerfile" ]
+    then
+        printf 'attaching headers to %s\n' "$filepath" >&2
+        cat "$headerfile" "$filepath" > "$tmpfile"
+        cp "$tmpfile" "$filepath"
+    else
+        echo "The MPL header template is missing from $headerfile" >&2
+        echo "No header can be attached to $filepath" >&2
+        exit 1
+    fi
+}
+
+addheaders()
+{
+    IFS=$'\0'
+    while read -r filepath
+    do
+        addheader "$filepath"
+    done < <("$RG" "${RGFLAGS[@]}")
+}
+
+case "$*" in
+    add) addheaders;;
+    check) checkheaders;;
+    *)
+        echo "usage: $command [ add | check ]" >&2
+        exit 1
+        ;;
+esac

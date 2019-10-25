@@ -1,0 +1,195 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+WHITESPACE = _ { !NEWLINE ~ WHITE_SPACE }
+COMMENT = _ { "##" ~ (!NEWLINE ~ ANY)* }
+
+Document = {
+      Header
+    ~ Block*
+    ~ WHITE_SPACE* ~ EOI
+}
+
+//
+// Header Items
+//
+
+Header = {
+    SOI
+    // Skip over the hashbang in the file, if it exists
+    ~ ("#!" ~ (!NEWLINE ~ ANY)* ~ NEWLINE)? ~ NEWLINE*
+    ~ Title
+    // After the title comes any number of key-value pairs, representing
+    // document metadata
+    ~ DocumentProps
+    // The header is terminated with three dashes
+    ~ "---" ~ NEWLINE+
+}
+
+Title = {
+    HeaderText ~ NEWLINE+
+}
+
+DocumentProps = {
+    DocumentProp*
+}
+
+DocumentProp = {
+    Key ~ (KeyToVal ~ DocumentPropValue)? ~ NEWLINE+
+}
+
+DocumentPropValue = { HeaderText }
+
+//
+// Block items
+//
+
+Block = _{
+    WHITE_SPACE*
+    ~ ((&"#-" ~ BlockTag) | (&"#+" ~ LiteralTag) | Paragraph)
+    ~ NEWLINE+
+}
+
+BlockTag = ${
+    "#-"
+    ~ Key
+    ~ (!"[" | Props)
+    ~ ( (":"
+        ~ NEWLINE+ ~ WHITESPACE*
+        ~ BlockTagChildren
+        ~ "#:")
+        | BlockParagraph
+      )?
+    ~ WHITESPACE*
+}
+
+LiteralTag = ${
+    "#+"
+    ~ Key
+    ~ (!"[" | Props)
+    ~ PUSH(":" ~ (!WHITE_SPACE ~ ANY)*)
+    ~ NEWLINE
+    ~ Literal
+    ~ LiteralEnd
+}
+
+Literal = @{
+    ((!(("#" ~ PEEK) | NEWLINE) ~ ANY)* ~ NEWLINE)*
+}
+
+LiteralEnd = _ {
+    "#" ~ POP
+}
+
+BlockTagChildren = _{ Block* }
+
+Paragraph = ${
+    Inline ~ (SoftBreak? ~ Inline)*
+}
+
+//
+// Inline items
+//
+
+Inline = _{
+    EscapedPlainText | InlineTag | PlainText
+}
+
+InlineTag = ${
+    "#"
+    ~ Key
+    ~ (!"[" | Props)
+    ~ (!"{" | InlineParagraph)
+}
+
+InlineParagraph = _{
+    "{" ~ Paragraph ~ "}"
+}
+
+BlockParagraph = _{
+    "{" ~ Paragraph ~ "}"
+}
+
+SoftBreak = @{ NEWLINE }
+
+//
+// Tags
+//
+
+Props = !{
+    "["
+    ~ NEWLINE*
+    ~ Prop
+    ~ ("," ~ NEWLINE* ~ Prop)*
+    ~ ","? ~ NEWLINE*
+    ~ "]"
+}
+
+Prop = {
+    Key ~ (KeyToVal ~ QuotedText)?
+}
+
+QuotedText = {
+    PUSH("\"" | "'")
+    ~ (PlainQuotedText | EscapedQuotedText)*
+    ~ POP
+}
+
+PlainQuotedText = @{
+    (!(PEEK | "\\") ~ ANY)+
+}
+
+EscapedQuotedText = @{
+    "\\" ~ (PEEK | "\\")
+}
+
+
+//
+// Terminal elements
+//
+
+Key = @ {
+    !KeyInitReserved ~ ANY
+    ~ (!KeyReserved ~ ANY)*
+}
+
+KeyToVal = _{
+    ":" | "="
+}
+
+PlainText = @{
+    (!Reserved ~ ANY)+
+}
+
+HeaderText = _ {
+    (PlainText | EscapedPlainText)+
+}
+
+//
+// Text classes
+//
+
+EscapedPlainText = @{
+    "\\" ~ ( "\\" | "n" | "#" | "{" | "}" )
+}
+
+Reserved = _ {
+    "\\" | "#" | "{" | "}" | NEWLINE
+}
+
+KeyReserved = _ {
+    Reserved
+    | WHITE_SPACE
+    | "[" | "]"
+    | ":" | "="
+    | "\"" | ","
+}
+
+KeyInitReserved = _ {
+    KeyReserved
+    | '1' .. '9'
+    | "+"
+    | "-"
+}
+
