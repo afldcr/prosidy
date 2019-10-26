@@ -1,2 +1,8 @@
 LICENSE
 Cargo.lock
+rust-toolchain
+400.xml
+403.xml
+404.xml
+405.xml
+500.xml

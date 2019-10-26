@@ -18,7 +18,12 @@ pub struct XMLGen<'r, 'a> {
 }
 
 impl<'r, 'a> XMLGen<'r, 'a> {
-    pub fn new<I, S>(seed: I, namespace: &'r Namespace, stylesheets: S, tag_prefix: Option<&'r str>) -> Self
+    pub fn new<I, S>(
+        seed: I,
+        namespace: &'r Namespace,
+        stylesheets: S,
+        tag_prefix: Option<&'r str>,
+    ) -> Self
     where
         I: Into<Item<'r, 'a>>,
         S: IntoIterator<Item = &'r str>,
@@ -79,7 +84,7 @@ impl<'r, 'a> XMLGen<'r, 'a> {
                     "xml-stylesheet",
                     Some(href),
                 ));
-            },
+            }
             Item::Document(doc) => {
                 let mut attributes = Vec::with_capacity(1 + doc.props().len());
                 attributes.push(Attribute {

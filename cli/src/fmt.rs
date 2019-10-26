@@ -6,7 +6,7 @@
 use std::io::Write;
 
 use anyhow::Result;
-use clap::{Arg, App, ArgMatches};
+use clap::{App, Arg, ArgMatches};
 use prosidy::Document;
 use xml::namespace::Namespace;
 use xml::EmitterConfig;
@@ -21,43 +21,8 @@ pub struct Format {
 }
 
 impl Format {
-    pub fn write<W: Write>(&self, mut writer: W, document: &Document) -> Result<()> {
-        match self.kind {
-            FormatKind::CBOR => serde_cbor::to_writer(writer, document)?,
-            FormatKind::JSON => {
-                if self.opts.json_pretty {
-                    serde_json::to_writer_pretty(&mut writer, document)?;
-                } else {
-                    serde_json::to_writer(&mut writer, document)?;
-                }
-                writer.write_all(b"\n")?;
-            }
-            FormatKind::XML => {
-                let mut namespace = Namespace::empty();
-                namespace.put(PROSIDY_PREFIX, PROSIDY_URI);
-                let prefix = self.opts.xml_namespace.as_ref().map(|xmlns| {
-                    namespace.put(&xmlns.prefix, &xmlns.uri);
-                    xmlns.prefix.as_str()
-                });
-                let mut event_writer = EmitterConfig {
-                    autopad_comments: true,
-                    cdata_to_characters: false,
-                    indent_string: Default::default(),
-                    keep_element_names_stack: true,
-                    line_separator: Default::default(),
-                    normalize_empty_elements: true,
-                    perform_escaping: true,
-                    perform_indent: false,
-                    write_document_declaration: true,
-                }.create_writer(&mut writer);
-                let stylesheets = self.opts.xml_stylesheets.iter().map(String::as_str);
-                for event in XMLGen::new(document, &namespace, stylesheets, prefix) {
-                    event_writer.write(event)?;
-                }
-                writer.write_all(b"\n")?;
-            }
-        }
-        Ok(())
+    pub fn write<W: Write>(&self, writer: W, document: &Document) -> Result<()> {
+        self.kind.write(&self.opts, writer, document)
     }
 }
 
@@ -73,11 +38,30 @@ impl FromArgs for Format {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum FormatKind {
     CBOR,
     JSON,
     XML,
+}
+
+impl FormatKind {
+    pub fn write<W: Write>(self, opts: &FormatOpts, writer: W, document: &Document) -> Result<()> {
+        match self {
+            FormatKind::CBOR    => opts.write_cbor(writer, document),
+            FormatKind::JSON    => opts.write_json(writer, document),
+            FormatKind::XML     => opts.write_xml(writer, document),
+        }
+    }
+
+
+    pub fn media_type(self) -> &'static mime::Mime {
+        match self {
+            FormatKind::CBOR => &crate::mediatype::APPLICATION_CBOR,
+            FormatKind::JSON => &mime::APPLICATION_JSON,
+            FormatKind::XML  => &mime::TEXT_XML,
+        }
+    }
 }
 
 impl FromArgs for FormatKind {
@@ -114,6 +98,50 @@ pub struct FormatOpts {
     xml_stylesheets: Vec<String>,
 }
 
+impl FormatOpts {
+    pub fn write_cbor<W: Write>(&self, writer: W, document: &Document) -> Result<()> {
+        serde_cbor::to_writer(writer, document)?;
+        Ok(())
+    }
+
+
+    pub fn write_json<W: Write>(&self, mut writer: W, document: &Document) -> Result<()> {
+        if self.json_pretty {
+            serde_json::to_writer_pretty(&mut writer, document)?;
+        } else {
+            serde_json::to_writer(&mut writer, document)?;
+        }
+        writer.write_all(b"\n")?;
+        Ok(())
+    }
+
+    pub fn write_xml<W: Write>(&self, mut writer: W, document: &Document) -> Result<()> {
+        let mut namespace = Namespace::empty();
+        namespace.put(PROSIDY_PREFIX, PROSIDY_URI);
+        let prefix = self.xml_namespace.as_ref().map(|xmlns| {
+            namespace.put(&xmlns.prefix, &xmlns.uri);
+            xmlns.prefix.as_str()
+        });
+        let mut event_writer = EmitterConfig {
+            autopad_comments: true,
+            cdata_to_characters: false,
+            indent_string: Default::default(),
+            keep_element_names_stack: true,
+            line_separator: Default::default(),
+            normalize_empty_elements: true,
+            perform_escaping: true,
+            perform_indent: false,
+            write_document_declaration: true,
+        }.create_writer(&mut writer);
+        let stylesheets = self.xml_stylesheets.iter().map(String::as_str);
+        for event in XMLGen::new(document, &namespace, stylesheets, prefix) {
+            event_writer.write(event)?;
+        }
+        writer.write_all(b"\n")?;
+        Ok(())
+    }
+}
+
 impl FromArgs for FormatOpts {
     fn register_args<'a, 'b>(app: App<'a, 'b>) -> App<'a, 'b> {
         let json_pretty = Arg::with_name(ARG_JSON_PRETTY)
@@ -132,12 +160,15 @@ impl FromArgs for FormatOpts {
 
     fn parse_args(matches: &ArgMatches) -> Result<Self> {
         let json_pretty = matches.is_present(ARG_JSON_PRETTY);
-        let xml_stylesheets = matches.values_of(ARG_XSLT)
+        let xml_stylesheets = matches
+            .values_of(ARG_XSLT)
             .into_iter()
             .flatten()
-            .map(|s| format! {
-                r#"type="text/xsl" href="{}""#,
-                xml::escape::escape_str_attribute(s),
+            .map(|s| {
+                format! {
+                    r#"type="text/xsl" href="{}""#,
+                    xml::escape::escape_str_attribute(s),
+                }
             })
             .collect();
         let xml_namespace = Option::parse_args(matches)?;
@@ -169,12 +200,17 @@ impl FromArgs for Option<XmlNS> {
         if let Some(mut values) = matches.values_of(ARG_XMLNS) {
             let prefix = values.next().unwrap();
             if prefix == PROSIDY_PREFIX {
-                anyhow::bail!("The namespace prefix 'prosidy' is reserved; \
-                               please choose a different namespace.");
+                anyhow::bail!(
+                    "The namespace prefix 'prosidy' is reserved; \
+                     please choose a different namespace."
+                );
             }
             let uri = values.next().unwrap();
             debug_assert!(values.next().is_none());
-            Ok(Some(XmlNS { prefix: prefix.into(), uri: uri.into() }))
+            Ok(Some(XmlNS {
+                prefix: prefix.into(),
+                uri: uri.into(),
+            }))
         } else {
             Ok(None)
         }

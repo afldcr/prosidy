@@ -3,8 +3,8 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-use clap::{App, ArgMatches};
 use anyhow::Result;
+use clap::{App, ArgMatches};
 
 pub trait FromArgs: Sized {
     fn register_args<'a, 'b>(app: App<'a, 'b>) -> App<'a, 'b>;

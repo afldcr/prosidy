@@ -6,10 +6,11 @@
 use std::io::Write;
 
 use anyhow::Result;
+use clap::{value_t, App, AppSettings, Arg, ArgMatches, SubCommand};
 use log::LevelFilter;
-use clap::{Arg, App, AppSettings, ArgMatches, SubCommand, value_t};
 
 use self::args::{AppExt, FromArgs};
+use self::serve::ServeOpts;
 
 fn main() {
     let app = App::new(env!("CARGO_PKG_NAME"))
@@ -18,12 +19,12 @@ fn main() {
         .setting(AppSettings::SubcommandRequiredElseHelp)
         .setting(AppSettings::ColorAuto)
         .register::<Opts>();
-    let ref matches = app.clone().get_matches();
-    let opts = Opts::parse_args(matches).unwrap_or_else(|error| {
+    let matches = app.clone().get_matches();
+    let opts = Opts::parse_args(&matches).unwrap_or_else(|error| {
         let stderr = std::io::stderr();
-        let ref mut out = stderr.lock();
-        writeln!(out, "{}", error).unwrap();
-        app.write_help(out).unwrap();
+        let mut out = stderr.lock();
+        writeln!(&mut out, "{}", error).unwrap();
+        app.write_help(&mut out).unwrap();
         out.write_all(b"\n").unwrap();
         std::process::exit(1);
     });
@@ -77,16 +78,19 @@ impl FromArgs for Opts {
 #[derive(Debug)]
 enum Mode {
     Compile(Compile),
+    Serve(ServeOpts),
     GenerateCompletions,
 }
 
 impl Mode {
     const COMPILE: &'static str = "compile";
     const GENERATE_COMPLETIONS: &'static str = "gen-completions";
+    const SERVE: &'static str = "serve";
 
     fn run(self, mut app: App) -> Result<()> {
         match self {
             Mode::Compile(compile) => compile.run(),
+            Mode::Serve(serve) => serve.run(),
             Mode::GenerateCompletions => {
                 app.gen_completions_to("prosidy", clap::Shell::Zsh, &mut std::io::stdout());
                 Ok(())
@@ -102,7 +106,10 @@ impl FromArgs for Mode {
             .register::<Compile>();
         let generate_completions = SubCommand::with_name(Mode::GENERATE_COMPLETIONS)
             .about("Generate completions for the Prosidy CLI tool");
-        app.subcommand(compile).subcommand(generate_completions)
+        let serve = SubCommand::with_name(Mode::SERVE)
+            .about("Serve Prosidy documents over HTTP")
+            .register::<ServeOpts>();
+        app.subcommand(compile).subcommand(generate_completions).subcommand(serve)
     }
 
     fn parse_args(matches: &ArgMatches) -> Result<Self> {
@@ -112,8 +119,10 @@ impl FromArgs for Mode {
                 let compile = Compile::parse_args(sub_matches.unwrap())?;
                 Ok(Mode::Compile(compile))
             }
-            Mode::GENERATE_COMPLETIONS => {
-                Ok(Mode::GenerateCompletions)
+            Mode::GENERATE_COMPLETIONS => Ok(Mode::GenerateCompletions),
+            Mode::SERVE => {
+                let serve = ServeOpts::parse_args(sub_matches.unwrap())?;
+                Ok(Mode::Serve(serve))
             }
             _ => {
                 anyhow::bail!("unknown subcommand {:?}", sub);
@@ -150,14 +159,13 @@ impl FromArgs for Compile {
     fn parse_args(matches: &ArgMatches) -> Result<Self> {
         let format = fmt::Format::parse_args(matches)?;
         let io = io::IOOpts::parse_args(matches)?;
-        Ok(Compile {
-            format,
-            io,
-        })
+        Ok(Compile { format, io })
     }
 }
 
 mod args;
 mod fmt;
 mod io;
+mod mediatype;
+mod serve;
 mod xmlgen;

@@ -24,6 +24,9 @@ license:
 
 manual: $(manual_xmls) $(manual_misc)
 
+serve: target/release/prosidy
+	$< serve --log-level info --xslt /style/manual.xsl --xmlns pm https://prosidy.org/schema/prosidy-manual.xsd manual/
+
 check: check-xmls
 	.mpl/headers check
 	cargo test
