@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- This Source Code Form is subject to the terms of the Mozilla Public
      License, v. 2.0. If a copy of the MPL was not distributed with this
-     file, You can obtain one at https://mozilla.org/MPL/2.0/. -->
-<xsd:schema xmlns:pm="https://prosidy.org/manual/schema" xmlns:p="https://prosidy.org/schema" xmlns:xsd="http://www.w3.org/2001/XMLSchema" targetNamespace="https://prosidy.org/manual/schema" elementFormDefault="qualified" attributeFormDefault="qualified">
-    <xsd:import namespace="https://prosidy.org/schema" schemaLocation="prosidy.xsd" />
+     file, You can obtain one at https://mozilla.org/MPL/2.0/.
+-->
+<xsd:schema xmlns:pm="https://prosidy.org/schema/prosidy-manual.xsd" xmlns:p="https://prosidy.org/schema/prosidy.xsd" xmlns:xsd="http://www.w3.org/2001/XMLSchema" targetNamespace="https://prosidy.org/schema/prosidy-manual.xsd" elementFormDefault="qualified" attributeFormDefault="qualified">
+    <xsd:import namespace="https://prosidy.org/schema/prosidy.xsd" schemaLocation="prosidy.xsd" />
 
     <xsd:attribute name="lang" type="xsd:language" />
     <xsd:attribute name="author" type="xsd:string" />

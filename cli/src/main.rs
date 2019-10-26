@@ -3,161 +3,161 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-use std::path::PathBuf;
+use std::io::Write;
 
-use ::xml::namespace::Namespace;
-use ::xml::EmitterConfig;
 use anyhow::Result;
-use prosidy::Document;
-use structopt::StructOpt;
+use log::LevelFilter;
+use clap::{Arg, App, AppSettings, ArgMatches, SubCommand, value_t};
 
-use format::ASTFormat;
+use self::args::{AppExt, FromArgs};
 
 fn main() {
-    let opts = Opts::from_args();
-    env_logger::init();
-    if let Err(e) = opts.run() {
+    let app = App::new(env!("CARGO_PKG_NAME"))
+        .author(env!("CARGO_PKG_AUTHORS"))
+        .version(env!("CARGO_PKG_VERSION"))
+        .setting(AppSettings::SubcommandRequiredElseHelp)
+        .setting(AppSettings::ColorAuto)
+        .register::<Opts>();
+    let ref matches = app.clone().get_matches();
+    let opts = Opts::parse_args(matches).unwrap_or_else(|error| {
+        let stderr = std::io::stderr();
+        let ref mut out = stderr.lock();
+        writeln!(out, "{}", error).unwrap();
+        app.write_help(out).unwrap();
+        out.write_all(b"\n").unwrap();
+        std::process::exit(1);
+    });
+    if let Err(e) = opts.run(app) {
         eprintln!("{}", e);
         std::process::exit(1);
     }
 }
 
-#[derive(Debug, StructOpt)]
-enum Opts {
-    AST(AST),
-    Compile(Compile),
-    Render(Render),
+#[derive(Debug)]
+struct Opts {
+    log_level: LevelFilter,
+    mode: Mode,
 }
 
 impl Opts {
-    fn run(self) -> Result<()> {
+    const ARG_LOG_LEVEL: &'static str = "log-level";
+
+    fn run(self, app: App) -> Result<()> {
+        let _ = env_logger::builder()
+            .filter_module("prosidy", self.log_level)
+            .filter_module("prosidy_ast", self.log_level)
+            .filter_module("prosidy_cli", self.log_level)
+            .filter_module("prosidy_parse", self.log_level)
+            .try_init();
+        log::debug!("Initialized logger with level {:?}", self.log_level);
+        log::debug!("Options: {:?}", self);
+        self.mode.run(app)
+    }
+}
+
+impl FromArgs for Opts {
+    fn register_args<'a, 'b>(app: App<'a, 'b>) -> App<'a, 'b> {
+        let arg = Arg::with_name(Opts::ARG_LOG_LEVEL)
+            .help("Set the threshold for log messages printed to stderr")
+            .long("log-level")
+            .short("l")
+            .global(true)
+            .default_value("warn")
+            .possible_values(&["trace", "debug", "info", "warn", "error", "off"]);
+        app.arg(arg).register::<Mode>()
+    }
+
+    fn parse_args(matches: &ArgMatches) -> Result<Self> {
+        let log_level = value_t!(matches, Opts::ARG_LOG_LEVEL, LevelFilter)?;
+        let mode = Mode::parse_args(matches)?;
+        Ok(Opts { log_level, mode })
+    }
+}
+
+#[derive(Debug)]
+enum Mode {
+    Compile(Compile),
+    GenerateCompletions,
+}
+
+impl Mode {
+    const COMPILE: &'static str = "compile";
+    const GENERATE_COMPLETIONS: &'static str = "gen-completions";
+
+    fn run(self, mut app: App) -> Result<()> {
         match self {
-            Opts::AST(ast) => ast.run(),
-            Opts::Compile(compile) => compile.run(),
-            Opts::Render(render) => render.run(),
+            Mode::Compile(compile) => compile.run(),
+            Mode::GenerateCompletions => {
+                app.gen_completions_to("prosidy", clap::Shell::Zsh, &mut std::io::stdout());
+                Ok(())
+            }
         }
     }
 }
 
-#[derive(Debug, StructOpt)]
-/// Read a Prosidy file and serialize its AST
-struct AST {
-    #[structopt(flatten)]
-    io: IOOpts,
-    #[structopt(short = "f", long = "format", default_value = "json")]
-    ast_format: ASTFormat,
-}
+impl FromArgs for Mode {
+    fn register_args<'a, 'b>(app: App<'a, 'b>) -> App<'a, 'b> {
+        let compile = SubCommand::with_name(Mode::COMPILE)
+            .about("Parse a Prosidy document into an AST")
+            .register::<Compile>();
+        let generate_completions = SubCommand::with_name(Mode::GENERATE_COMPLETIONS)
+            .about("Generate completions for the Prosidy CLI tool");
+        app.subcommand(compile).subcommand(generate_completions)
+    }
 
-impl AST {
-    fn run(self) -> Result<()> {
-        log::debug!("opening prosidy input");
-        let mut input = io::Input::new(self.io.input.as_ref())?;
-        log::debug!("reading input to string");
-        let source = input.contents_string()?;
-        log::debug!("parsing document from input");
-        let doc = prosidy::parse::parse_document(source.as_str())?;
-        log::debug!("opening output to write serialized AST into");
-        let output = io::Output::new(self.io.output.as_ref())?;
-        self.ast_format.serialize(output, &doc)?;
-        Ok(())
+    fn parse_args(matches: &ArgMatches) -> Result<Self> {
+        let (sub, sub_matches) = matches.subcommand();
+        match sub {
+            Mode::COMPILE => {
+                let compile = Compile::parse_args(sub_matches.unwrap())?;
+                Ok(Mode::Compile(compile))
+            }
+            Mode::GENERATE_COMPLETIONS => {
+                Ok(Mode::GenerateCompletions)
+            }
+            _ => {
+                anyhow::bail!("unknown subcommand {:?}", sub);
+            }
+        }
     }
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug)]
 struct Compile {
-    #[structopt(flatten)]
-    io: IOOpts,
-    #[structopt(flatten)]
-    xml: XMLOpts,
+    format: fmt::Format,
+    io: io::IOOpts,
 }
 
 impl Compile {
     fn run(self) -> Result<()> {
-        log::debug!("opening prosidy input");
-        let mut input = io::Input::new(self.io.input.as_ref())?;
-        log::debug!("reading input to string");
-        let source = input.contents_string()?;
-        log::debug!("parsing document from input");
-        let doc = prosidy::parse::parse_document(source.as_str())?;
-        log::debug!("opening output to render document into");
-        let output = io::Output::new(self.io.output.as_ref())?;
-        self.xml.render(output, doc)
-    }
-}
-
-#[derive(Debug, StructOpt)]
-struct Render {
-    #[structopt(flatten)]
-    io: IOOpts,
-    #[structopt(flatten)]
-    xml: XMLOpts,
-    #[structopt(short = "f", long = "format", default_value = "json")]
-    ast_format: ASTFormat,
-}
-
-impl Render {
-    fn run(self) -> Result<()> {
-        log::debug!("opening prosidy input");
-        let mut input = io::Input::new(self.io.input.as_ref())?;
-        log::debug!("reading input to string");
-        let source = input.contents_bytes()?;
-        log::debug!("parsing AST from input");
-        let doc = self.ast_format.deserialize::<Document>(&source)?;
-        log::debug!("opening output to write converted document into");
-        let output = io::Output::new(self.io.output.as_ref())?;
-        log::debug!("writing document");
-        self.xml.render(output, doc)
-    }
-}
-
-#[derive(Debug, StructOpt)]
-struct IOOpts {
-    #[structopt(short = "i", long = "in")]
-    /// The file path to the Prosidy source to parse. Defaults to stdin.
-    input: Option<PathBuf>,
-    #[structopt(short = "o", long = "out")]
-    /// The destination to serialize the AST to. Defaults to stdout.
-    output: Option<PathBuf>,
-}
-
-#[derive(Debug, StructOpt)]
-struct XMLOpts {
-    #[structopt(short = "p", long = "prefix", requires = "namespace")]
-    prefix: Option<String>,
-    #[structopt(short = "n", long = "namespace", requires = "prefix")]
-    namespace: Option<String>,
-}
-
-impl XMLOpts {
-    fn namespace(&self) -> Option<(&str, &str)> {
-        let XMLOpts { prefix, namespace } = self;
-        match (prefix, namespace) {
-            (Some(ref prefix), Some(ref namespace)) => Some((prefix, namespace)),
-            (None, None) => None,
-            _ => unreachable!("--prefix and --namespace must be provided together"),
-        }
-    }
-
-    fn render(self, output: io::Output, doc: Document) -> Result<()> {
-        let mut namespace = Namespace::empty();
-        namespace.put("prosidy", "https://prosidy.org/schema");
-        let prefix: Option<&str> = self.namespace().map(|(pfx, uri)| {
-            namespace.put(pfx, uri);
-            pfx
-        });
-        let mut writer = EmitterConfig::new()
-            .perform_indent(false)
-            .write_document_declaration(true)
-            .normalize_empty_elements(true)
-            .keep_element_names_stack(true)
-            .create_writer(output);
-        for event in xml::XML::new(&doc, &namespace, prefix) {
-            writer.write(event)?;
-        }
+        log::debug!("reading source");
+        let source = self.io.input()?.contents()?;
+        log::debug!("parsing source into Document");
+        let doc = prosidy::parse::parse_document(&source)?;
+        log::debug!("opening output");
+        let output = self.io.output()?;
+        log::debug!("rendering document to output");
+        self.format.write(output, &doc)?;
         Ok(())
     }
 }
 
-mod format;
+impl FromArgs for Compile {
+    fn register_args<'a, 'b>(app: App<'a, 'b>) -> App<'a, 'b> {
+        app.register::<fmt::Format>().register::<io::IOOpts>()
+    }
+
+    fn parse_args(matches: &ArgMatches) -> Result<Self> {
+        let format = fmt::Format::parse_args(matches)?;
+        let io = io::IOOpts::parse_args(matches)?;
+        Ok(Compile {
+            format,
+            io,
+        })
+    }
+}
+
+mod args;
+mod fmt;
 mod io;
-mod xml;
+mod xmlgen;

@@ -11,20 +11,24 @@ use ::xml::namespace::Namespace;
 use ::xml::writer::events::XmlEvent;
 use prosidy::{Block, BlockTag, Document, Inline, InlineTag, Literal, Text};
 
-pub struct XML<'r, 'a> {
+pub struct XMLGen<'r, 'a> {
     queue: Vec<Item<'r, 'a>>,
     namespace: &'r Namespace,
     tag_prefix: Option<&'r str>,
 }
 
-impl<'r, 'a> XML<'r, 'a> {
-    pub fn new<I>(seed: I, namespace: &'r Namespace, tag_prefix: Option<&'r str>) -> Self
+impl<'r, 'a> XMLGen<'r, 'a> {
+    pub fn new<I, S>(seed: I, namespace: &'r Namespace, stylesheets: S, tag_prefix: Option<&'r str>) -> Self
     where
         I: Into<Item<'r, 'a>>,
+        S: IntoIterator<Item = &'r str>,
     {
         let mut queue = Vec::with_capacity(128);
         queue.push(seed.into());
-        XML {
+        for style in stylesheets {
+            queue.push(Item::Stylesheet(style));
+        }
+        XMLGen {
             tag_prefix,
             queue,
             namespace,
@@ -70,6 +74,12 @@ impl<'r, 'a> XML<'r, 'a> {
         F: FnOnce(XmlEvent<'r>),
     {
         match item {
+            Item::Stylesheet(href) => {
+                emit(XmlEvent::processing_instruction(
+                    "xml-stylesheet",
+                    Some(href),
+                ));
+            },
             Item::Document(doc) => {
                 let mut attributes = Vec::with_capacity(1 + doc.props().len());
                 attributes.push(Attribute {
@@ -162,7 +172,7 @@ impl<'r, 'a> XML<'r, 'a> {
     }
 }
 
-impl<'r, 'a: 'r> Iterator for XML<'r, 'a> {
+impl<'r, 'a: 'r> Iterator for XMLGen<'r, 'a> {
     type Item = XmlEvent<'r>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -177,6 +187,7 @@ impl<'r, 'a: 'r> Iterator for XML<'r, 'a> {
 
 #[derive(Clone, Debug)]
 pub enum Item<'r, 'a> {
+    Stylesheet(&'r str),
     Document(&'r Document<'a>),
     BlockTag(&'r BlockTag<'a>),
     InlineTag(&'r InlineTag<'a>),
@@ -211,14 +222,6 @@ impl<'r, 'a> From<&'r Text<'a>> for Item<'r, 'a> {
     fn from(item: &'r Text<'a>) -> Self {
         Item::Text(item)
     }
-}
-
-lazy_static::lazy_static! {
-    static ref XML_NAMESPACE: Namespace = {
-        let mut ns = Namespace::empty();
-        ns.put("prosidy", "https://prosidy.org/schema");
-        ns
-    };
 }
 
 const DOCUMENT: Name = Name {

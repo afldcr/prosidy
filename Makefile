@@ -4,17 +4,16 @@
 
 include .make/*.makefile
 
-PROSIDY_FLAGS ?= --namespace https://prosidy.org/manual/schema --prefix pm
+PROSIDY_FLAGS ?= --xmlns pm https://prosidy.org/schema/prosidy-manual.xsd --xslt style/manual.xsl
 
 manual_prosidy_srcs := $(wildcard manual/*.pro)
 manual_xmls         := $(manual_prosidy_srcs:%.pro=target/%.xml)
-manual_htmls        := $(manual_xmls:%.xml=%.html)
-manual_styles       := $(foreach style,$(wildcard manual/style/*),$(style:manual/style/%=target/manual/%))
+manual_misc         := $(addprefix target/,$(wildcard manual/style/*) $(wildcard manual/schema/*))
 rust_srcs           := $(shell find . -path '*/src/*.rs' -or -name 'Cargo.toml')
 
 .PHONY: all clean license manual check check-xmls
 
-all: $(manual_htmls) target/release/prosidy
+all: $(manual_xmls) $(manual_misc) target/release/prosidy
 
 clean:
 	cargo clean
@@ -23,14 +22,14 @@ clean:
 license:
 	.mpl/headers add
 
-manual: $(manual_htmls)
+manual: $(manual_xmls) $(manual_misc)
 
 check: check-xmls
 	.mpl/headers check
 	cargo test
 
-check-xmls: $(manual_xmls) $(manual_styles) target/manual/schema.xsd target/manual/prosidy.xsd
-	xmllint --noout --schema target/manual/schema.xsd $<
+check-xmls: $(manual_xmls) $(manual_misc)
+	xmllint --noout --schema target/manual/schema/prosidy-manual.xsd $<
 
 #
 # Rust targets
@@ -43,23 +42,8 @@ target/release/prosidy: $(rust_srcs)
 # Building the Prosidy manual
 #
 
-$(manual_htmls): %.html: %.xml $(manual_styles)
-	xsltproc --output $@ manual/style/manual.xsl $<
-
-target/manual/prosidy.xsd:
-	@mkdir -p target/manual
-	curl -L -o $@ https://prosidy.org/schema/prosidy.xsd
-
-target/manual/schema.xsd: manual/style/schema.xsd
-	@mkdir -p target/manual
-	cp $< $@
-
-target/manual/hyperlinks.xml: manual/style/hyperlinks.xml
-	@mkdir -p target/manual
-	cp $< $@
-
-target/manual/manual.xsl: manual/style/manual.xsl
-	@mkdir -p target/manual
+$(manual_misc): target/manual/%: manual/%
+	@mkdir -p $(dir $@)
 	cp $< $@
 
 # Compile all Prosidy documents

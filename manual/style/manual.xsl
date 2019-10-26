@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- This Source Code Form is subject to the terms of the Mozilla Public
-     License, v. 2.0. If a copy of the MPL was not distributed with this
-     file, You can obtain one at https://mozilla.org/MPL/2.0/. -->
-<xsl:transform version="1.0" xmlns:exsl="http://exslt.org/common" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:p="https://prosidy.org/schema" xmlns:pm="https://prosidy.org/manual/schema" exclude-result-prefixes="exsl p pm">
+<!--
+This Source Code Form is subject to the terms of the Mozilla Public
+License, v. 2.0. If a copy of the MPL was not distributed with this
+file, You can obtain one at https://mozilla.org/MPL/2.0/.
+-->
+<xsl:transform version="1.0" xmlns:exsl="http://exslt.org/common" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:p="https://prosidy.org/schema/prosidy.xsd" xmlns:pm="https://prosidy.org/schema/prosidy-manual.xsd" exclude-result-prefixes="exsl p pm">
     <xsl:output method="html" indent="no" omit-xml-declaration="yes" />
 
     <xsl:strip-space elements="*" />
