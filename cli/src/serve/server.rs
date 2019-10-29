@@ -12,7 +12,7 @@ use std::time::Instant;
 
 use anyhow::Result;
 use hyper::{header, Request, Response, Body, Method, Server};
-use hyper::http::{Error as HttpError};
+use hyper::http::{Error as HttpError, response::Builder};
 use hyper::service::{make_service_fn, service_fn};
 use hyper::server::conn::AddrStream;
 use mime::Mime;
@@ -23,6 +23,7 @@ use crate::fmt::FormatKind;
 use crate::mediatype::{CBOR, infer_media_type};
 use super::opts::ServeOpts;
 use super::http_error::*;
+use super::cache::handle_caching;
 
 pub fn serve(opts: Arc<ServeOpts>) -> Result<()> {
     let addr = opts.address();
@@ -91,26 +92,31 @@ async fn handle(opts: Arc<ServeOpts>, request: Request<Body>) -> Result<Response
         )
     };
     let bytes = tokio::fs::read(&path).await?;
+    let mut builder = Response::builder();
+    // add caching metadata, if caching is enabled
+    if let Some(ref opts) = opts.cache_opts {
+        handle!(handle_caching(&request, opts, &mut builder, &bytes));
+    }
+    // check the extension for how to respond
     if path.extension() == Some("pro".as_ref()) {
-        handle_prosidy(&request, opts, bytes)
+        handle_prosidy(&request, builder, opts, bytes)
     } else {
         let mime = infer_media_type(&path);
-        Response::builder()
+        builder
             .header(header::CONTENT_TYPE, mime.as_ref())
             .body(bytes.into())
-            .err_into()
+            .map_err(anyhow::Error::from)
     }
 }
 
-fn handle_prosidy(request: &Request<Body>, opts: Arc<ServeOpts>, bytes: Vec<u8>) -> Result<Response<Body>> {
+fn handle_prosidy(request: &Request<Body>, mut builder: Builder, opts: Arc<ServeOpts>, bytes: Vec<u8>) -> Result<Response<Body>> {
     let source = String::from_utf8(bytes)?;
     let doc = prosidy::parse::parse_document(&source)?;
-
 
     let mut output = Vec::with_capacity(8192);
     let format = determine_format(request);
     format.write(&opts.format, &mut output, &doc)?;
-    Response::builder()
+    builder
         .header(header::CONTENT_TYPE, format.media_type().as_ref())
         .body(output.into())
         .err_into()
@@ -182,6 +188,7 @@ fn check_method(request: &Request<Body>) -> Handle<()> {
         Err(menthod_not_allowed().err_into())
     }
 }
+
 
 fn normalize_path(follow: bool, root: &Path, path_str: &str) -> Handle<PathBuf> {
     use std::io::ErrorKind::*;

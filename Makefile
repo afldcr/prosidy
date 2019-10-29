@@ -5,6 +5,7 @@
 include .make/*.makefile
 
 PROSIDY_FLAGS ?= --xmlns pm https://prosidy.org/schema/prosidy-manual.xsd --xslt style/manual.xsl
+SERVE_FLAGS ?= --cache --validate --log-level info --xmlns pm https://prosidy.org/schema/prosidy-manual.xsd --xslt /style/manual.xsl
 
 manual_prosidy_srcs := $(wildcard manual/*.pro)
 manual_xmls         := $(manual_prosidy_srcs:%.pro=target/%.xml)
@@ -25,7 +26,7 @@ license:
 manual: $(manual_xmls) $(manual_misc)
 
 serve: target/release/prosidy
-	$< serve --log-level info --xslt /style/manual.xsl --xmlns pm https://prosidy.org/schema/prosidy-manual.xsd manual/
+	$< serve $(SERVE_FLAGS) ./manual
 
 check: check-xmls
 	.mpl/headers check

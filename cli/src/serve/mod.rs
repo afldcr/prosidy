@@ -5,6 +5,7 @@
 
 pub use opts::ServeOpts;
 
+mod cache;
 mod http_error;
 mod opts;
 mod server;
