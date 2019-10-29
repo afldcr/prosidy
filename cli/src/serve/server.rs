@@ -117,8 +117,8 @@ fn handle_prosidy(request: &Request<Body>, opts: Arc<ServeOpts>, bytes: Vec<u8>)
 }
 
 fn determine_format(request: &Request<Body>) -> FormatKind {
-    determine_format_from_headers(request)
-        .or_else(|| determine_format_from_params(request))
+    determine_format_from_params(request)
+        .or_else(|| determine_format_from_headers(request))
         .unwrap_or(FormatKind::XML)
 }
 
@@ -158,7 +158,7 @@ fn determine_format_from_headers(request: &Request<Body>) -> Option<FormatKind> 
 
 fn determine_format_from_params(request: &Request<Body>) -> Option<FormatKind> {
     let query = request.uri().query()?;
-    log::info!("Reading format types from query params: {:?}", query);
+    log::debug!("Reading format types from query params: {:?}", query);
     query
         .split('&')
         .map(|s| if s.chars().any(char::is_uppercase) {
@@ -222,3 +222,49 @@ where
     }
 }
 
+#[test]
+fn auto_format_default() {
+    let req = Request::new(Body::default());
+    assert_eq!(
+        FormatKind::XML,
+        determine_format(&req),
+        "if no format is specified, default to XML",
+    );
+}
+
+#[test]
+fn auto_format_accept() {
+    let req = Request::builder()
+        .header(header::ACCEPT, "text/html;q=1, text/xml;q=0.5, application/json;q=0.9")
+        .body(Body::default()).unwrap();
+    assert_eq!(
+        FormatKind::JSON,
+        determine_format(&req),
+        "if an ACCEPT header is provided, provide the supported format with the highest quality",
+    );
+}
+
+#[test]
+fn auto_format_params() {
+    let req = Request::builder()
+        .uri("/?nonsense&cbor&json")
+        .body(Body::default()).unwrap();
+    assert_eq!(
+        FormatKind::CBOR,
+        determine_format(&req),
+        "if query parameters are provided with a format, return the first supported format",
+    );
+}
+
+#[test]
+fn auto_format_accept_and_params() {
+    let req = Request::builder()
+        .header(header::ACCEPT, "text/html;q=1, text/xml;q=0.5, application/json;q=0.9")
+        .uri("/?nonsense&cbor&json")
+        .body(Body::default()).unwrap();
+    assert_eq!(
+        FormatKind::CBOR,
+        determine_format(&req),
+        "query parameters take precedence over the ACCEPT header (browsers send ACCEPT by default)",
+    );
+}

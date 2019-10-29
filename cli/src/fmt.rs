@@ -38,7 +38,7 @@ impl FromArgs for Format {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum FormatKind {
     CBOR,
     JSON,
