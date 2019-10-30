@@ -3,12 +3,12 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 WHITESPACE = _ { !NEWLINE ~ WHITE_SPACE }
-COMMENT = _ { "##" ~ (!NEWLINE ~ ANY)* }
+COMMENT = _ { "##" ~ (!NEWLINE ~ ANY)* ~ TrailingWS }
 
 Document = {
       Header
     ~ Block*
-    ~ WHITE_SPACE* ~ EOI
+    ~ EOI
 }
 
 //
@@ -17,18 +17,16 @@ Document = {
 
 Header = {
     SOI
-    // Skip over the hashbang in the file, if it exists
-    ~ ("#!" ~ (!NEWLINE ~ ANY)* ~ NEWLINE)? ~ NEWLINE*
     ~ Title
     // After the title comes any number of key-value pairs, representing
     // document metadata
     ~ DocumentProps
     // The header is terminated with three dashes
-    ~ "---" ~ NEWLINE+
+    ~ "---" ~ TrailingWS
 }
 
 Title = {
-    HeaderText ~ NEWLINE+
+    HeaderText ~ TrailingWS
 }
 
 DocumentProps = {
@@ -36,7 +34,7 @@ DocumentProps = {
 }
 
 DocumentProp = {
-    Key ~ (KeyToVal ~ DocumentPropValue)? ~ NEWLINE+
+    Key ~ (KeyToVal ~ DocumentPropValue)? ~ TrailingWS
 }
 
 DocumentPropValue = { HeaderText }
@@ -46,28 +44,21 @@ DocumentPropValue = { HeaderText }
 //
 
 Block = _{
-    WHITE_SPACE*
-    ~ ((&"#-" ~ BlockTag) | (&"#+" ~ LiteralTag) | Paragraph)
-    ~ NEWLINE+
+      (("#-" ~ BlockTag) | ("#+" ~ LiteralTag) | (!"#:" ~ Paragraph))
+    ~ TrailingWS
 }
 
 BlockTag = ${
-    "#-"
-    ~ Key
-    ~ (!"[" | Props)
-    ~ ( (":"
-        ~ NEWLINE+ ~ WHITESPACE*
-        ~ BlockTagChildren
-        ~ "#:")
-        | BlockParagraph
+      Key
+    ~ ("[" ~ Props ~ "]")?
+    ~ ( (":" ~ TrailingWS ~ Block* ~ "#:")
+      | ("{" ~ Paragraph ~ "}")
       )?
-    ~ WHITESPACE*
 }
 
 LiteralTag = ${
-    "#+"
-    ~ Key
-    ~ (!"[" | Props)
+      Key
+    ~ ("[" ~ Props ~ "]")?
     ~ PUSH(":" ~ (!WHITE_SPACE ~ ANY)*)
     ~ NEWLINE
     ~ Literal
@@ -82,8 +73,6 @@ LiteralEnd = _ {
     "#" ~ POP
 }
 
-BlockTagChildren = _{ Block* }
-
 Paragraph = ${
     Inline ~ (SoftBreak? ~ Inline)*
 }
@@ -97,33 +86,21 @@ Inline = _{
 }
 
 InlineTag = ${
-    "#"
+    !("#" ~ (":" | "+" | "-" | "#"))
+    ~ "#"
     ~ Key
-    ~ (!"[" | Props)
-    ~ (!"{" | InlineParagraph)
+    ~ ("[" ~ Props ~ "]")?
+    ~ ("{" ~ Paragraph ~ "}")?
 }
 
-InlineParagraph = _{
-    "{" ~ Paragraph ~ "}"
-}
-
-BlockParagraph = _{
-    "{" ~ Paragraph ~ "}"
-}
-
-SoftBreak = @{ NEWLINE }
+SoftBreak = @{ NEWLINE ~ (!NEWLINE ~ WHITE_SPACE)* }
 
 //
 // Tags
 //
 
 Props = !{
-    "["
-    ~ NEWLINE*
-    ~ Prop
-    ~ ("," ~ NEWLINE* ~ Prop)*
-    ~ ","? ~ NEWLINE*
-    ~ "]"
+    Prop ~ ("," ~ Prop)*
 }
 
 Prop = {
@@ -193,3 +170,4 @@ KeyInitReserved = _ {
     | "-"
 }
 
+TrailingWS = _ { NEWLINE ~ WHITE_SPACE* }

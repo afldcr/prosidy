@@ -12,17 +12,24 @@
 #-nested{Content!}
 
 #-multiline:
-Some #em[ru="еще"]{more} content!
+    Some #em[ru="еще"]{more} content!
 #:
 
 #-propsnested[foo, bar='baz']{Even #em[es="más"]{more} content!}
 
 #-propsmultiline[qux, baz='foo']:
-#-nestedinmultiline:
-Ok then
-#:
+    #-nestedinmultiline:
+        Ok then
+    #:
 #:
 
-## #+lit:
-## #this{isn't} valid at all!
-## #:
+#+lit:end
+    #this{isn't} valid at all!
+    #:
+    #:
+    #:
+#:end
+
+#+lit[withprops='true', flag]:
+    this literal has properties!
+#:

@@ -7,3 +7,4 @@
 ---
 
 This is a simple document with only a single paragraph.
+

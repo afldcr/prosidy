@@ -94,7 +94,7 @@ impl<'r, 'a> XMLGen<'r, 'a> {
                 for (k, opt_v) in doc.props().iter() {
                     attributes.push(Attribute {
                         name: self.qualified_name(&k),
-                        value: opt_v.map(|v| v.as_str()).unwrap_or_else(|| k.as_str()),
+                        value: opt_v.map(|v| v.as_str()).unwrap_or(""),
                     });
                 }
                 self.queue.push(Item::End);
