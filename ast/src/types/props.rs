@@ -14,7 +14,7 @@ use super::text::Text;
 
 /// A set of Prosidy properties.
 ///
-/// `PropSet`s consist of both valued _properties_ (e.g. `foo = 'bar'`) and boolean _settings_
+/// `PropSet`s consist of both valued _settings_ (e.g. `foo = 'bar'`) and boolean _properties_
 /// (e.g.  `'baz'`).
 #[derive(Clone, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct PropSet<'a> {
