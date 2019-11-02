@@ -24,12 +24,18 @@
 #:
 
 #+lit:end
-    #this{isn't} valid at all!
-    #:
-    #:
-    #:
+#this{isn't} valid at all!
+#:
+#:
+#:
 #:end
 
-#+lit[withprops='true', flag]:
+#+lit[flag, withprops='true']:
     this literal has properties!
+#:
+
+#-content:
+    #+lit:
+        Literals can be nested!
+    #:
 #:

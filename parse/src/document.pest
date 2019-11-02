@@ -50,18 +50,19 @@ Block = _{
 
 BlockTag = ${
       Key
-    ~ ("[" ~ Props ~ "]")?
+    ~ ("[" ~ Props? ~ "]")?
     ~ ( (":" ~ TrailingWS ~ Block* ~ "#:")
-      | ("{" ~ Paragraph ~ "}")
+      | ("{" ~ Paragraph? ~ "}")
       )?
 }
 
 LiteralTag = ${
       Key
-    ~ ("[" ~ Props ~ "]")?
+    ~ ("[" ~ Props? ~ "]")?
     ~ PUSH(":" ~ (!WHITE_SPACE ~ ANY)*)
     ~ NEWLINE
     ~ Literal
+    ~ WHITE_SPACE*
     ~ LiteralEnd
 }
 
@@ -89,8 +90,8 @@ InlineTag = ${
     !("#" ~ (":" | "+" | "-" | "#"))
     ~ "#"
     ~ Key
-    ~ ("[" ~ Props ~ "]")?
-    ~ ("{" ~ Paragraph ~ "}")?
+    ~ ("[" ~ Props? ~ "]")?
+    ~ ("{" ~ Paragraph? ~ "}")?
 }
 
 SoftBreak = @{ NEWLINE ~ (!NEWLINE ~ WHITE_SPACE)* }
@@ -116,6 +117,7 @@ QuotedText = {
 PlainQuotedText = @{
     (!(PEEK | "\\") ~ ANY)+
 }
+
 
 EscapedQuotedText = @{
     "\\" ~ (PEEK | "\\")
