@@ -79,22 +79,19 @@ impl FromArgs for Opts {
 enum Mode {
     Compile(Compile),
     Serve(ServeOpts),
-    GenerateCompletions,
+    Completions(Completions),
 }
 
 impl Mode {
     const COMPILE: &'static str = "compile";
-    const GENERATE_COMPLETIONS: &'static str = "gen-completions";
+    const COMPLETIONS: &'static str = "generate-completions";
     const SERVE: &'static str = "serve";
 
-    fn run(self, mut app: App) -> Result<()> {
+    fn run(self, app: App) -> Result<()> {
         match self {
             Mode::Compile(compile) => compile.run(),
             Mode::Serve(serve) => serve.run(),
-            Mode::GenerateCompletions => {
-                app.gen_completions_to("prosidy", clap::Shell::Zsh, &mut std::io::stdout());
-                Ok(())
-            }
+            Mode::Completions(complete) => complete.run(app),
         }
     }
 }
@@ -104,8 +101,10 @@ impl FromArgs for Mode {
         let compile = SubCommand::with_name(Mode::COMPILE)
             .about("Parse a Prosidy document into an AST")
             .register::<Compile>();
-        let generate_completions = SubCommand::with_name(Mode::GENERATE_COMPLETIONS)
-            .about("Generate completions for the Prosidy CLI tool");
+        let generate_completions = SubCommand::with_name(Mode::COMPLETIONS)
+            .about("Generate completions for the Prosidy CLI tool")
+            .setting(AppSettings::Hidden)
+            .register::<Completions>();
         let serve = SubCommand::with_name(Mode::SERVE)
             .about("Serve Prosidy documents over HTTP")
             .register::<ServeOpts>();
@@ -119,7 +118,10 @@ impl FromArgs for Mode {
                 let compile = Compile::parse_args(sub_matches.unwrap())?;
                 Ok(Mode::Compile(compile))
             }
-            Mode::GENERATE_COMPLETIONS => Ok(Mode::GenerateCompletions),
+            Mode::COMPLETIONS => {
+                let completions = Completions::parse_args(sub_matches.unwrap())?;
+                Ok(Mode::Completions(completions))
+            }
             Mode::SERVE => {
                 let serve = ServeOpts::parse_args(sub_matches.unwrap())?;
                 Ok(Mode::Serve(serve))
@@ -160,6 +162,35 @@ impl FromArgs for Compile {
         let format = fmt::Format::parse_args(matches)?;
         let io = io::IOOpts::parse_args(matches)?;
         Ok(Compile { format, io })
+    }
+}
+
+#[derive(Debug)]
+struct Completions {
+    shell: clap::Shell,
+}
+
+impl Completions {
+    const SHELL: &'static str = "shell";
+
+    fn run(self, mut app: App) -> Result<()> {
+        app.gen_completions_to("prosidy", self.shell, &mut std::io::stdout());
+        Ok(())
+    }
+}
+
+impl FromArgs for Completions {
+    fn register_args<'a, 'b>(app: App<'a, 'b>) -> App<'a, 'b> {
+        let shell = Arg::with_name(Completions::SHELL)
+            .help("Sets the completion format")
+            .possible_values(&["bash", "fish", "zsh", "powershell"])
+            .default_value("bash");
+        app.arg(shell)
+    }
+
+    fn parse_args(matches: &ArgMatches) -> Result<Self> {
+        let shell = value_t!(matches, Completions::SHELL, clap::Shell)?;
+        Ok(Completions { shell })
     }
 }
 
