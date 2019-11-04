@@ -4,27 +4,27 @@
  */
 
 use std::borrow::Cow;
-use std::sync::Arc;
-use std::result::{Result as StdResult};
-use std::path::{Path, PathBuf};
 use std::cmp::Ordering;
+use std::path::{Path, PathBuf};
+use std::result::Result as StdResult;
+use std::sync::Arc;
 use std::time::Instant;
 
 use anyhow::Result;
-use hyper::{header, Request, Response, Body, Method, Server};
-use hyper::http::{Error as HttpError, response::Builder};
-use hyper::service::{make_service_fn, service_fn};
+use hyper::http::{response::Builder, Error as HttpError};
 use hyper::server::conn::AddrStream;
+use hyper::service::{make_service_fn, service_fn};
+use hyper::{header, Body, Method, Request, Response, Server};
 use mime::Mime;
-use tokio::runtime::Runtime;
 use tokio::prelude::*;
+use tokio::runtime::Runtime;
 
-use crate::fmt::FormatKind;
-use crate::mediatype::{CBOR, infer_media_type};
-use crate::manifest::Manifest;
-use super::opts::ServeOpts;
-use super::http_error::*;
 use super::cache::handle_caching;
+use super::http_error::*;
+use super::opts::ServeOpts;
+use crate::fmt::FormatKind;
+use crate::manifest::Manifest;
+use crate::mediatype::{infer_media_type, CBOR};
 
 pub fn serve(opts: Arc<ServeOpts>) -> Result<()> {
     let addr = opts.address();
@@ -80,7 +80,7 @@ macro_rules! handle {
             Ok(ok) => ok,
             Err(err) => return err,
         }
-    }
+    };
 }
 
 async fn handle(opts: Arc<ServeOpts>, request: Request<Body>) -> Result<Response<Body>> {
@@ -99,7 +99,11 @@ async fn handle(opts: Arc<ServeOpts>, request: Request<Body>) -> Result<Response
     }
 }
 
-async fn handle_file(opts: Arc<ServeOpts>, request: Request<Body>, path: PathBuf) -> Result<Response<Body>> {
+async fn handle_file(
+    opts: Arc<ServeOpts>,
+    request: Request<Body>,
+    path: PathBuf,
+) -> Result<Response<Body>> {
     let bytes = tokio::fs::read(&path).await?;
     let mut builder = Response::builder();
     // add caching metadata, if caching is enabled
@@ -118,8 +122,12 @@ async fn handle_file(opts: Arc<ServeOpts>, request: Request<Body>, path: PathBuf
     }
 }
 
-async fn handle_manifest(opts: Arc<ServeOpts>, request: Request<Body>, path: PathBuf) -> Result<Response<Body>> {
-    let manifest = Manifest::read(path, opts.follow_symlinks).await?;
+async fn handle_manifest(
+    opts: Arc<ServeOpts>,
+    request: Request<Body>,
+    path: PathBuf,
+) -> Result<Response<Body>> {
+    let manifest = Manifest::read_async(path, opts.follow_symlinks).await?;
     let mut output = Vec::with_capacity(8192);
     let format = determine_format(&request);
     format.write(&opts.format, &mut output, &manifest)?;
@@ -129,7 +137,12 @@ async fn handle_manifest(opts: Arc<ServeOpts>, request: Request<Body>, path: Pat
         .err_into()
 }
 
-fn handle_prosidy(request: &Request<Body>, mut builder: Builder, opts: Arc<ServeOpts>, bytes: Vec<u8>) -> Result<Response<Body>> {
+fn handle_prosidy(
+    request: &Request<Body>,
+    mut builder: Builder,
+    opts: Arc<ServeOpts>,
+    bytes: Vec<u8>,
+) -> Result<Response<Body>> {
     let source = String::from_utf8(bytes)?;
     let doc = prosidy::parse::parse_document(&source)?;
 
@@ -153,7 +166,8 @@ fn determine_format_from_headers(request: &Request<Body>) -> Option<FormatKind> 
     log::debug!("Reading format types from ACCEPT header: {:?}", accept);
     accept
         // Split the header on commas, then try to parse each segment as a mime type
-        .split(',').flat_map(|raw| raw.trim_start().parse::<Mime>().ok())
+        .split(',')
+        .flat_map(|raw| raw.trim_start().parse::<Mime>().ok())
         // Then, try to match the mime type and subtype against supported formats,
         // attaching the quality if one is set.
         .flat_map(|mime| {
@@ -163,7 +177,7 @@ fn determine_format_from_headers(request: &Request<Body>) -> Option<FormatKind> 
                     mime::XML => Some(FormatKind::XML),
                     other if other == *CBOR => Some(FormatKind::CBOR),
                     _ => None,
-                }
+                },
                 mime::TEXT => match mime.subtype() {
                     mime::XML => Some(FormatKind::XML),
                     _ => None,
@@ -171,14 +185,13 @@ fn determine_format_from_headers(request: &Request<Body>) -> Option<FormatKind> 
                 _ => None,
             }?;
             // https://developer.mozilla.org/en-US/docs/Glossary/Quality_values
-            let quality = mime.get_param("q")
+            let quality = mime
+                .get_param("q")
                 .and_then(|q| q.as_ref().parse::<f64>().ok())
                 .unwrap_or(1.0);
             Some((kind, quality))
         })
-        .max_by(|(_, q1), (_, q2)| {
-            q1.partial_cmp(q2).unwrap_or(Ordering::Equal)
-        })
+        .max_by(|(_, q1), (_, q2)| q1.partial_cmp(q2).unwrap_or(Ordering::Equal))
         .map(|(kind, _)| kind)
 }
 
@@ -187,16 +200,18 @@ fn determine_format_from_params(request: &Request<Body>) -> Option<FormatKind> {
     log::debug!("Reading format types from query params: {:?}", query);
     query
         .split('&')
-        .map(|s| if s.chars().any(char::is_uppercase) {
-            Cow::Owned(s.to_lowercase())
-        } else {
-            Cow::Borrowed(s)
+        .map(|s| {
+            if s.chars().any(char::is_uppercase) {
+                Cow::Owned(s.to_lowercase())
+            } else {
+                Cow::Borrowed(s)
+            }
         })
         .flat_map(|s| match s.as_ref() {
             "cbor" => Some(FormatKind::CBOR),
             "json" => Some(FormatKind::JSON),
-            "xml"  => Some(FormatKind::XML),
-            _      => None
+            "xml" => Some(FormatKind::XML),
+            _ => None,
         })
         .next()
 }
@@ -209,14 +224,13 @@ fn check_method(request: &Request<Body>) -> Handle<()> {
     }
 }
 
-
 fn normalize_path(follow: bool, root: &Path, path_str: &str) -> Handle<PathBuf> {
     use std::io::ErrorKind::*;
     use std::path::Component::*;
     let mut buf = PathBuf::new();
     for part in Path::new(path_str.trim_start_matches('/')).components() {
         match part {
-            CurDir | ParentDir if buf.pop() => {},
+            CurDir | ParentDir if buf.pop() => {}
             Normal(path) => buf.push(path),
             _ => return Err(bad_request().err_into()),
         }
@@ -262,8 +276,12 @@ fn auto_format_default() {
 #[test]
 fn auto_format_accept() {
     let req = Request::builder()
-        .header(header::ACCEPT, "text/html;q=1, text/xml;q=0.5, application/json;q=0.9")
-        .body(Body::default()).unwrap();
+        .header(
+            header::ACCEPT,
+            "text/html;q=1, text/xml;q=0.5, application/json;q=0.9",
+        )
+        .body(Body::default())
+        .unwrap();
     assert_eq!(
         FormatKind::JSON,
         determine_format(&req),
@@ -275,7 +293,8 @@ fn auto_format_accept() {
 fn auto_format_params() {
     let req = Request::builder()
         .uri("/?nonsense&cbor&json")
-        .body(Body::default()).unwrap();
+        .body(Body::default())
+        .unwrap();
     assert_eq!(
         FormatKind::CBOR,
         determine_format(&req),
@@ -286,9 +305,13 @@ fn auto_format_params() {
 #[test]
 fn auto_format_accept_and_params() {
     let req = Request::builder()
-        .header(header::ACCEPT, "text/html;q=1, text/xml;q=0.5, application/json;q=0.9")
+        .header(
+            header::ACCEPT,
+            "text/html;q=1, text/xml;q=0.5, application/json;q=0.9",
+        )
         .uri("/?nonsense&cbor&json")
-        .body(Body::default()).unwrap();
+        .body(Body::default())
+        .unwrap();
     assert_eq!(
         FormatKind::CBOR,
         determine_format(&req),

@@ -3,9 +3,9 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-use quick_xml::Result;
-use quick_xml::events::{BytesStart, BytesEnd, BytesText, Event};
 use prosidy_ast::*;
+use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
+use quick_xml::Result;
 
 pub use quick_xml;
 
@@ -121,13 +121,9 @@ where
     }
 }
 
-
 fn insert_props<'a>(start: &mut BytesStart<'a>, props: &PropSet<'a>) {
     for (name, opt_value) in props.iter() {
-        start.push_attribute((
-                name.as_str(),
-                opt_value.unwrap_or(Text::EMPTY).as_str(),
-        ));
+        start.push_attribute((name.as_str(), opt_value.unwrap_or(Text::EMPTY).as_str()));
     }
 }
 

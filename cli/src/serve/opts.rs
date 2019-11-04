@@ -3,11 +3,11 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-use std::net::{SocketAddr, IpAddr};
+use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 
 use anyhow::Result;
-use clap::{App, Arg, ArgMatches, value_t};
+use clap::{value_t, App, Arg, ArgMatches};
 
 use crate::args::{AppExt, FromArgs};
 use crate::fmt::FormatOpts;
@@ -55,12 +55,9 @@ impl FromArgs for ServeOpts {
             .long("follow")
             .short("F")
             .takes_value(false);
-        app.args(&[
-            address,
-            port,
-            follow_symlinks,
-            root_path,
-        ]).register::<FormatOpts>().register::<Option<CacheOpts>>()
+        app.args(&[address, port, follow_symlinks, root_path])
+            .register::<FormatOpts>()
+            .register::<Option<CacheOpts>>()
     }
 
     fn parse_args(matches: &ArgMatches) -> Result<Self> {
@@ -103,11 +100,7 @@ impl FromArgs for Option<CacheOpts> {
             .requires(ARG_CACHE)
             .default_value_if(ARG_CACHE, None, "3600")
             .value_name("SECONDS");
-        app.args(&[
-            enable,
-            max_age,
-            validate,
-        ])
+        app.args(&[enable, max_age, validate])
     }
 
     fn parse_args(matches: &ArgMatches) -> Result<Self> {

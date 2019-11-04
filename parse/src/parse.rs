@@ -13,7 +13,7 @@ use crate::traits::*;
 
 pub fn parse_meta<'p>(src: &'p str) -> Result<PropSet<'p>> {
     let mut ast = DocumentParser::parse(Rule::Header, src).map_err(SyntaxError)?;
-    PropSet::parse(&mut ast)
+    ast.with_block(Rule::Header, |ast| PropSet::parse(ast))
 }
 
 pub fn parse_document<'p>(src: &'p str) -> Result<Document<'p>> {
@@ -90,9 +90,7 @@ impl<'p> Parse<'p> for Document<'p> {
     fn parse(pairs: &mut Pairs<'p>) -> Result<Self> {
         pairs.with_block(Rule::Document, |pairs| {
             log::debug!("parsing document");
-            let props = pairs.with_block(Rule::Header, |pairs| {
-                PropSet::parse(pairs)
-            })?;
+            let props = pairs.with_block(Rule::Header, |pairs| PropSet::parse(pairs))?;
             let content = Vec::parse(pairs)?;
             pairs.rule(Rule::EOI)?;
             Ok(Document::new(props, content))

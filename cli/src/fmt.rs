@@ -7,8 +7,8 @@ use std::io::Write;
 
 use anyhow::Result;
 use clap::{App, Arg, ArgMatches};
+use prosidy::xml::quick_xml::{events::BytesDecl, events::BytesText, events::Event};
 use prosidy::xml::{self, XML};
-use prosidy::xml::quick_xml::{events::Event, events::BytesDecl, events::BytesText};
 use serde::Serialize;
 
 use crate::args::{AppExt, FromArgs};
@@ -45,20 +45,25 @@ pub enum FormatKind {
 }
 
 impl FormatKind {
-    pub fn write<S: Serialize + XML, W: Write>(self, opts: &FormatOpts, writer: W, value: &S) -> Result<()> {
+    pub fn write<S: Serialize + XML, W: Write>(
+        self,
+        opts: &FormatOpts,
+        writer: W,
+        value: &S,
+    ) -> Result<()> {
         match self {
             FormatKind::CBOR => opts.write_cbor(writer, value),
             FormatKind::JSON => opts.write_json(writer, value),
-            FormatKind::XML  => opts.write_xml(writer, value),
+            FormatKind::XML => opts.write_xml(writer, value),
         }
     }
 
-
+    #[cfg(feature = "server")]
     pub fn media_type(self) -> &'static mime::Mime {
         match self {
             FormatKind::CBOR => &crate::mediatype::APPLICATION_CBOR,
             FormatKind::JSON => &mime::APPLICATION_JSON,
-            FormatKind::XML  => &mime::TEXT_XML,
+            FormatKind::XML => &mime::TEXT_XML,
         }
     }
 }
@@ -120,10 +125,7 @@ impl FormatOpts {
         writer.write_event(Event::Decl(decl))?;
         // next, write all of the stylesheet instructions as pre-processor events
         for stylesheet in self.xml_stylesheets.iter() {
-            let contents = format!(
-                r#"xml-stylesheet type="text/xsl" href="{}""#,
-                stylesheet,
-            );
+            let contents = format!(r#"xml-stylesheet type="text/xsl" href="{}""#, stylesheet,);
             let event = BytesText::from_escaped_str(&contents);
             writer.write_event(Event::PI(event))?;
         }

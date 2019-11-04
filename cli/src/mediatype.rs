@@ -3,12 +3,12 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-use std::path::Path;
 use std::ops::Deref;
+use std::path::Path;
 
 use lazy_static::lazy_static;
-use mime::{Name, Mime};
-use phf::{Map, phf_map};
+use mime::{Mime, Name};
+use phf::{phf_map, Map};
 
 use StaticMime::*;
 
@@ -21,7 +21,7 @@ pub fn infer_media_type<P: AsRef<Path>>(path: P) -> &'static Mime {
         .unwrap_or(DEFAULT_MEDIA_TYPE)
 }
 
-const DEFAULT_MEDIA_TYPE: &'static Mime = &mime::APPLICATION_OCTET_STREAM;
+const DEFAULT_MEDIA_TYPE: &Mime = &mime::APPLICATION_OCTET_STREAM;
 
 static MEDIA_TYPES: Map<&'static str, StaticMime> = phf_map! {
     "css"   => Static(mime::TEXT_CSS),
@@ -47,21 +47,21 @@ static MEDIA_TYPES: Map<&'static str, StaticMime> = phf_map! {
 
 lazy_static! {
     pub static ref APPLICATION_CBOR: Mime = {
-        "application/cbor".parse::<Mime>().expect("Failed to instantiate media type")
+        "application/cbor"
+            .parse::<Mime>()
+            .expect("Failed to instantiate media type")
     };
-
     pub static ref APPLICATION_XSLT: Mime = {
-        "application/xslt+xml".parse::<Mime>().expect("Failed to instantiate media type")
+        "application/xslt+xml"
+            .parse::<Mime>()
+            .expect("Failed to instantiate media type")
     };
-
-    pub static ref CBOR: Name<'static> = {
-        APPLICATION_CBOR.subtype()
-    };
+    pub static ref CBOR: Name<'static> = { APPLICATION_CBOR.subtype() };
 }
 
 enum StaticMime {
     Static(Mime),
-    Lazy(&'static (dyn Deref<Target=Mime> + Send + Sync)),
+    Lazy(&'static (dyn Deref<Target = Mime> + Send + Sync)),
 }
 
 impl Deref for StaticMime {

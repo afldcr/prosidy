@@ -6,26 +6,29 @@ include .make/*.makefile
 
 PROSIDY_FLAGS ?= --xmlns https://prosidy.org/schema/prosidy-manual.xsd --xslt style/manual.xsl
 SERVE_FLAGS ?= --cache --validate --log-level info --xmlns https://prosidy.org/schema/prosidy-manual.xsd --xslt /style/manual.xsl
+PLATFORM ?= linux-x64
 
 manual_prosidy_srcs := $(wildcard manual/*.pro)
 manual_xmls         := $(manual_prosidy_srcs:%.pro=target/%.xml)
 manual_misc         := $(addprefix target/,$(wildcard manual/style/*) $(wildcard manual/schema/*))
 rust_srcs           := $(shell find . -path '*/src/*.rs' -or -name 'Cargo.toml')
 
+release_bins        := target/bin/prosidy-$(PLATFORM)
+
 .PHONY: all clean license manual check check-xmls
 
-all: $(manual_xmls) $(manual_misc) target/release/prosidy
+all: $(manual_xmls) $(manual_misc) $(release_bins)
 
 clean:
 	cargo clean
-	rm -rf target/manual
+	rm -rf target/manual target/bin
 
 license:
 	.mpl/headers add
 
 manual: $(manual_xmls) $(manual_misc)
 
-serve: target/release/prosidy
+serve: target/bin/prosidy-$(PLATFORM)
 	$< serve $(SERVE_FLAGS) ./manual
 
 check: check-xmls
@@ -39,8 +42,10 @@ check-xmls: $(manual_xmls) $(manual_misc)
 # Rust targets
 #
 
-target/release/prosidy: $(rust_srcs)
+target/bin/prosidy-$(PLATFORM): $(rust_srcs)
+	@mkdir -p target/bin
 	cargo build --release -p prosidy-cli
+	mv target/release/prosidy $@
 
 #
 # Building the Prosidy manual

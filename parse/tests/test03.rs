@@ -72,37 +72,28 @@ fn expected() -> Document<'static> {
             Tag::new(
                 "lit",
                 props!(),
-                vec![
-                    Block::Literal(Literal::from(Text::from(
-                        "#this{isn\'t} valid at all!\n#:\n#:\n#:\n"
-                    ))),
-                ]
+                vec![Block::Literal(Literal::from(Text::from(
+                    "#this{isn\'t} valid at all!\n#:\n#:\n#:\n",
+                )))],
             )
             .into(),
             Tag::new(
                 "lit",
-                props!(flag, withprops="true"),
-                vec![
-                    Literal::from(Text::from(
-                        "    this literal has properties!\n"
-                    )).into(),
-                ]
-            ).into(),
+                props!(flag, withprops = "true"),
+                vec![Literal::from(Text::from("    this literal has properties!\n")).into()],
+            )
+            .into(),
             Tag::new(
                 "content",
                 props!(),
-                vec![
-                    Tag::new(
-                        "lit",
-                        props!(),
-                        vec![
-                            Literal::from(Text::from(
-                                "        Literals can be nested!\n",
-                            )).into()
-                        ],
-                    ).into(),
-                ]
-            ).into(),
+                vec![Tag::new(
+                    "lit",
+                    props!(),
+                    vec![Literal::from(Text::from("        Literals can be nested!\n")).into()],
+                )
+                .into()],
+            )
+            .into(),
         ],
     )
 }

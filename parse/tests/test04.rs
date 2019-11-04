@@ -42,17 +42,13 @@ fn expected() -> Document<'static> {
 }
 
 fn empty_block() -> Block<'static> {
-    BlockTag::new("block", props!(), vec![])
-        .into()
+    BlockTag::new("block", props!(), vec![]).into()
 }
 
 fn empty_inline() -> Inline<'static> {
-    InlineTag::new("inline", props!(), vec![])
-        .into()
+    InlineTag::new("inline", props!(), vec![]).into()
 }
 
 fn empty_lit() -> Block<'static> {
-    BlockTag::new("lit", props!(), vec![
-        Block::Literal(Literal::default()),
-    ]).into()
+    BlockTag::new("lit", props!(), vec![Block::Literal(Literal::default())]).into()
 }
