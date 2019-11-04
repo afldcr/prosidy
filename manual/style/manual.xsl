@@ -12,11 +12,11 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
     <xsl:template match="/p:document">
         <html lang="{./@lang}">
             <head>
-                <title><xsl:value-of select="./@p:title" /></title>
+                <title><xsl:value-of select="./@title" /></title>
             </head>
             <body>
                 <header>
-                    <h1><xsl:value-of select="./@p:title" /></h1>
+                    <h1><xsl:value-of select="./@title" /></h1>
                 </header>
                 <main><xsl:apply-templates /></main>
             </body>

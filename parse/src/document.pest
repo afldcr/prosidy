@@ -17,16 +17,8 @@ Document = {
 
 Header = {
     SOI
-    ~ Title
-    // After the title comes any number of key-value pairs, representing
-    // document metadata
     ~ DocumentProps
-    // The header is terminated with three dashes
     ~ "---" ~ TrailingWS
-}
-
-Title = {
-    HeaderText ~ TrailingWS
 }
 
 DocumentProps = {

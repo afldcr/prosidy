@@ -16,14 +16,12 @@ fn test_escape() -> Result<()> {
     Ok(())
 }
 
-fn expected<'b>() -> Document<'static> {
+fn expected() -> Document<'static> {
     Document::new(
-        Meta::new(
-            "002 - Lots of escapes (\\)",
-            props! {
-                author = "#hash#",
-            },
-        ),
+        props! {
+            title = "Lots of escapes (\\)",
+            author = "#hash#",
+        },
         vec![Block::Content(vec![
             Text::new("This is a document that contains multiple escape sequences.").into(),
             Inline::SoftBreak,

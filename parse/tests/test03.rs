@@ -18,7 +18,9 @@ fn test_escape() -> Result<()> {
 
 fn expected() -> Document<'static> {
     Document::new(
-        Meta::new("003 - Tags", props! {}),
+        props! {
+            title = "Tags",
+        },
         vec![
             Tag::new("simple", props! {}, vec![]).into(),
             Tag::new(

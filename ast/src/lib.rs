@@ -7,7 +7,7 @@
 extern crate derive_more;
 
 pub use block::Block;
-pub use document::{Document, Meta};
+pub use document::Document;
 pub use inline::Inline;
 pub use literal::Literal;
 pub use node::Node;
@@ -49,8 +49,7 @@ fn test_serde() {
     props.set("test");
     props.put("language", "en");
     props.put("author", "J Alexander Feldman-Crough");
-    let meta = Meta::new("hello, world", props);
-    let mut doc = Document::new(meta, vec![]);
+    let mut doc = Document::new(props, vec![]);
     let content = doc.content_mut();
     let heading = BlockTag::new(
         "h1",

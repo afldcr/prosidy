@@ -8,16 +8,15 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
     <xsd:complexType name="documentBody">
         <xsd:choice minOccurs="0" maxOccurs="unbounded">
             <xsd:element ref="p:paragraph" />
-            <xsd:any namespace="##local" />
+            <xsd:any namespace="##other" />
         </xsd:choice>
-        <xsd:attribute name="title" type="xsd:string" />
-        <xsd:anyAttribute namespace="##local" processContents="lax" />
+        <xsd:anyAttribute namespace="##any" processContents="lax" />
     </xsd:complexType>
 
     <xsd:complexType name="blockContent">
         <xsd:choice minOccurs="0" maxOccurs="unbounded">
             <xsd:element ref="p:literal" />
-            <xsd:any namespace="##local" />
+            <xsd:any namespace="##other" />
         </xsd:choice>
     </xsd:complexType>
 
@@ -25,7 +24,7 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
         <xsd:choice minOccurs="0" maxOccurs="unbounded">
             <xsd:element ref="p:softbreak" />
             <xsd:element ref="p:literal" />
-            <xsd:any namespace="##local" />
+            <xsd:any namespace="##other" />
         </xsd:choice>
     </xsd:complexType>
 
@@ -36,9 +35,8 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
     </xsd:complexType>
 
     <xsd:complexType name="itemType">
-        <xsd:attribute name="title" type="xsd:string" />
-        <xsd:attribute name="path" type="xsd:path" />
-        <xsd:anyAttribute namespace="##local" processContents="lax" />
+        <xsd:attribute name="path" type="xsd:anyURI" />
+        <xsd:anyAttribute namespace="##other" />
     </xsd:complexType>
 
     <xsd:element name="document" type="p:documentBody" />

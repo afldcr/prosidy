@@ -2,8 +2,7 @@
 ## License, v. 2.0. If a copy of the MPL was not distributed with this
 ## file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-An introduction to Prosidy
-
+title: An introduction to Prosidy
 author: James Alexander Feldman-Crough
 lang: en
 

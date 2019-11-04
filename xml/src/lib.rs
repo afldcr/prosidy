@@ -57,7 +57,6 @@ impl<'p> XML for Document<'p> {
         F: for<'a> FnMut(Event<'a>) -> Result<()>,
     {
         let mut start = BytesStart::borrowed_name(TAG_DOCUMENT.as_bytes());
-        start.push_attribute((ATTR_TITLE, self.title().as_str()));
         insert_props(&mut start, self.props());
         emit(Event::Start(start))?;
         self.content().to_events(emit)?;
@@ -132,7 +131,6 @@ fn insert_props<'a>(start: &mut BytesStart<'a>, props: &PropSet<'a>) {
     }
 }
 
-pub const ATTR_TITLE: &str = "prosidy:title";
 pub const TAG_DOCUMENT: &str = "prosidy:document";
 pub const TAG_LITERAL: &str = "prosidy:literal";
 const TAG_PARAGRAPH: &str = "prosidy:paragraph";

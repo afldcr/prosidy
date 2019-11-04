@@ -11,9 +11,9 @@ use prosidy_ast::*;
 use crate::error::{ErrorKind::*, Result};
 use crate::traits::*;
 
-pub fn parse_meta<'p>(src: &'p str) -> Result<Meta<'p>> {
+pub fn parse_meta<'p>(src: &'p str) -> Result<PropSet<'p>> {
     let mut ast = DocumentParser::parse(Rule::Header, src).map_err(SyntaxError)?;
-    Meta::parse(&mut ast)
+    PropSet::parse(&mut ast)
 }
 
 pub fn parse_document<'p>(src: &'p str) -> Result<Document<'p>> {
@@ -90,10 +90,12 @@ impl<'p> Parse<'p> for Document<'p> {
     fn parse(pairs: &mut Pairs<'p>) -> Result<Self> {
         pairs.with_block(Rule::Document, |pairs| {
             log::debug!("parsing document");
-            let meta: Meta<'p> = Meta::parse(pairs)?;
+            let props = pairs.with_block(Rule::Header, |pairs| {
+                PropSet::parse(pairs)
+            })?;
             let content = Vec::parse(pairs)?;
             pairs.rule(Rule::EOI)?;
-            Ok(Document::new(meta, content))
+            Ok(Document::new(props, content))
         })
     }
 }
@@ -150,17 +152,6 @@ impl<'p> Parse<'p> for Key {
         pairs.with_atom(Rule::Key, |s| {
             log::debug!("parsing key");
             Ok(Key::new(s))
-        })
-    }
-}
-
-impl<'p> Parse<'p> for Meta<'p> {
-    fn parse(pairs: &mut Pairs<'p>) -> Result<Self> {
-        pairs.with_block(Rule::Header, |pairs| {
-            log::debug!("parsing header");
-            let title = pairs.with_block(Rule::Title, |pairs| Text::parse(pairs))?;
-            let props = PropSet::parse(pairs)?;
-            Ok(Meta::new(title, props))
         })
     }
 }

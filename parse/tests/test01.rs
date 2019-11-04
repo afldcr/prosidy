@@ -17,9 +17,8 @@ fn test_simple() -> Result<()> {
 }
 
 fn expected() -> Document<'static> {
-    let meta = Meta::new("001 - Simple", PropSet::new());
     Document::new(
-        meta,
+        props!(),
         vec![Block::Content(vec![Inline::Text(Text::from(
             "This is a simple document with only a single paragraph.",
         ))])],

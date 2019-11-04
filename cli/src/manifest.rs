@@ -10,16 +10,16 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use futures::prelude::*;
-use prosidy::{Meta, Text};
+use prosidy::{PropSet, Text};
 use prosidy::parse::parse_meta;
-use prosidy::xml::{self, XML, quick_xml::Result as XMLResult};
+use prosidy::xml::{XML, quick_xml::Result as XMLResult};
 use prosidy::xml::quick_xml::events::{Event, BytesStart, BytesEnd};
 use serde::Serialize;
 use serde::ser::Serializer;
 use tokio_fs as fs;
 
 #[derive(Debug, Serialize)]
-/// A collection of [`Meta`] nodes extracted from the headers of each Prosidy file in a directory.
+/// A collection of [`PropSet`] nodes extracted from the headers of each Prosidy file in a directory.
 pub struct Manifest(HashMap<PathBuf, Entry>);
 
 impl Manifest {
@@ -61,12 +61,10 @@ impl XML for Manifest {
         let start = BytesStart::borrowed_name(Manifest::TAG_MANIFEST.as_bytes());
         emit(Event::Start(start))?;
         for (path, entry) in self.0.iter() {
-            let meta = &entry.meta;
             let mut start = BytesStart::borrowed_name(Manifest::TAG_ITEM.as_bytes());
-            start.push_attribute((xml::ATTR_TITLE, meta.title().as_str()));
             let path_str = path.to_string_lossy();
             start.push_attribute((Manifest::ATTR_PATH, path_str.as_ref()));
-            for (name, opt_val) in entry.meta.props().iter() {
+            for (name, opt_val) in entry.props.iter() {
                 let val = opt_val.unwrap_or(Text::EMPTY);
                 start.push_attribute((name.as_str(), val.as_str()));
             }
@@ -80,7 +78,7 @@ impl XML for Manifest {
 #[derive(Debug)]
 pub struct Entry {
     source: Pin<Arc<str>>,
-    meta: Meta<'static>,
+    props: PropSet<'static>,
 }
 
 impl Entry {
@@ -95,21 +93,21 @@ impl Entry {
         // Read metadata from the source string. It will be returned with the anonymous lifetime
         // which can't be kept past this functions end, so we'll transmute it into the correct
         // lifetime.
-        let parsed: Meta<'_> = match parse_meta(&source) {
+        let parsed: PropSet<'_> = match parse_meta(&source) {
             Ok(parsed) => parsed,
             Err(err) => {
                 log::warn!("Failed to parse {:?} as a Prosidy file: {}", path, err);
                 return Ok(None);
             },
         };
-        let meta: Meta<'static> = unsafe { std::mem::transmute(parsed) };
-        Ok(Some(Entry { source, meta }))
+        let props: PropSet<'static> = unsafe { std::mem::transmute(parsed) };
+        Ok(Some(Entry { source, props }))
     }
 }
 
 impl Serialize for Entry {
     fn serialize<S: Serializer>(&self, ser: S) -> std::result::Result<S::Ok, S::Error> {
-        self.meta.serialize(ser)
+        self.props.serialize(ser)
     }
 }
 

@@ -4,7 +4,7 @@
  */
 
 #[doc(inline)]
-pub use ast::{self, Block, BlockTag, Document, Inline, InlineTag, Key, Literal, Meta, Tag, Text};
+pub use ast::{self, Block, BlockTag, Document, Inline, InlineTag, Key, Literal, PropSet, Tag, Text};
 #[doc(inline)]
 pub use parse;
 #[doc(inline)]

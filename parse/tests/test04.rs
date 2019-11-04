@@ -18,7 +18,9 @@ fn test_empty_forms() -> Result<()> {
 
 fn expected() -> Document<'static> {
     Document::new(
-        Meta::new("004 - Empty forms", props! {}),
+        props! {
+            title = "Empty forms",
+        },
         vec![
             empty_block(),
             empty_block(),
