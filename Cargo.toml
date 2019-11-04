@@ -8,4 +8,5 @@ members = [
     "cli",
     "parse",
     "prosidy",
+    "xml",
 ]

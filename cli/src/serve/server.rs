@@ -21,6 +21,7 @@ use tokio::prelude::*;
 
 use crate::fmt::FormatKind;
 use crate::mediatype::{CBOR, infer_media_type};
+use crate::manifest::Manifest;
 use super::opts::ServeOpts;
 use super::http_error::*;
 use super::cache::handle_caching;
@@ -91,6 +92,14 @@ async fn handle(opts: Arc<ServeOpts>, request: Request<Body>) -> Result<Response
             request.uri().path(),
         )
     };
+    if path.is_file() {
+        handle_file(opts, request, path).await
+    } else {
+        handle_manifest(opts, request, path).await
+    }
+}
+
+async fn handle_file(opts: Arc<ServeOpts>, request: Request<Body>, path: PathBuf) -> Result<Response<Body>> {
     let bytes = tokio::fs::read(&path).await?;
     let mut builder = Response::builder();
     // add caching metadata, if caching is enabled
@@ -107,6 +116,17 @@ async fn handle(opts: Arc<ServeOpts>, request: Request<Body>) -> Result<Response
             .body(bytes.into())
             .map_err(anyhow::Error::from)
     }
+}
+
+async fn handle_manifest(opts: Arc<ServeOpts>, request: Request<Body>, path: PathBuf) -> Result<Response<Body>> {
+    let manifest = Manifest::read(path, opts.follow_symlinks).await?;
+    let mut output = Vec::with_capacity(8192);
+    let format = determine_format(&request);
+    format.write(&opts.format, &mut output, &manifest)?;
+    Response::builder()
+        .header(header::CONTENT_TYPE, format.media_type().as_ref())
+        .body(output.into())
+        .err_into()
 }
 
 fn handle_prosidy(request: &Request<Body>, mut builder: Builder, opts: Arc<ServeOpts>, bytes: Vec<u8>) -> Result<Response<Body>> {
@@ -207,7 +227,7 @@ fn normalize_path(follow: bool, root: &Path, path_str: &str) -> Handle<PathBuf> 
         PermissionDenied => forbidden().err_into(),
         _ => Err(e).err_into(),
     })?;
-    if (follow || canon == full) && canon.is_file() {
+    if (follow || canon == full) && (canon.is_file() || canon.is_dir()) {
         Ok(canon)
     } else {
         Err(not_found().err_into())

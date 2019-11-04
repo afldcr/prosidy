@@ -4,6 +4,7 @@
  */
 
 use std::io::Write;
+use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::{value_t, App, AppSettings, Arg, ArgMatches, SubCommand};
@@ -78,20 +79,23 @@ impl FromArgs for Opts {
 #[derive(Debug)]
 enum Mode {
     Compile(Compile),
-    Serve(ServeOpts),
     Completions(Completions),
+    Manifest(Manifest),
+    Serve(ServeOpts),
 }
 
 impl Mode {
     const COMPILE: &'static str = "compile";
     const COMPLETIONS: &'static str = "generate-completions";
+    const MANIFEST: &'static str = "manifest";
     const SERVE: &'static str = "serve";
 
     fn run(self, app: App) -> Result<()> {
         match self {
             Mode::Compile(compile) => compile.run(),
-            Mode::Serve(serve) => serve.run(),
             Mode::Completions(complete) => complete.run(app),
+            Mode::Manifest(manifest) => manifest.run(),
+            Mode::Serve(serve) => serve.run(),
         }
     }
 }
@@ -105,10 +109,17 @@ impl FromArgs for Mode {
             .about("Generate completions for the Prosidy CLI tool")
             .setting(AppSettings::Hidden)
             .register::<Completions>();
+        let manifest = SubCommand::with_name(Mode::MANIFEST)
+            .about("Parse the metadata of a document or directory of documents")
+            .register::<Manifest>();
         let serve = SubCommand::with_name(Mode::SERVE)
             .about("Serve Prosidy documents over HTTP")
             .register::<ServeOpts>();
-        app.subcommand(compile).subcommand(generate_completions).subcommand(serve)
+        app
+            .subcommand(compile)
+            .subcommand(generate_completions)
+            .subcommand(manifest)
+            .subcommand(serve)
     }
 
     fn parse_args(matches: &ArgMatches) -> Result<Self> {
@@ -121,6 +132,10 @@ impl FromArgs for Mode {
             Mode::COMPLETIONS => {
                 let completions = Completions::parse_args(sub_matches.unwrap())?;
                 Ok(Mode::Completions(completions))
+            }
+            Mode::MANIFEST => {
+                let manifest = Manifest::parse_args(sub_matches.unwrap())?;
+                Ok(Mode::Manifest(manifest))
             }
             Mode::SERVE => {
                 let serve = ServeOpts::parse_args(sub_matches.unwrap())?;
@@ -194,9 +209,46 @@ impl FromArgs for Completions {
     }
 }
 
+#[derive(Debug)]
+struct Manifest {
+    path: PathBuf,
+    format: fmt::Format,
+}
+
+impl Manifest {
+    const PATH: &'static str = "manifest-path";
+
+    pub fn run(self) -> Result<()> {
+        let rt = tokio::runtime::Runtime::new()?;
+        rt.block_on(async move {
+            let manifest = manifest::Manifest::read(&self.path, true).await?;
+            let stdout = std::io::stdout();
+            let lock = stdout.lock();
+            self.format.write(lock, &manifest)
+        })
+    }
+}
+
+impl FromArgs for Manifest {
+    fn register_args<'a, 'b>(app: App<'a, 'b>) -> App<'a, 'b> {
+        let path = Arg::with_name(Manifest::PATH)
+            .help("The directory to parse metadata from.")
+            .value_name("DIR")
+            .required(true);
+        app.arg(path).register::<fmt::Format>()
+    }
+
+    fn parse_args(matches: &ArgMatches) -> Result<Self> {
+        let format = fmt::Format::parse_args(matches)?;
+        let path = value_t!(matches, Manifest::PATH, PathBuf)?;
+        Ok(Manifest { format, path })
+    }
+}
+
+
 mod args;
 mod fmt;
 mod io;
+mod manifest;
 mod mediatype;
 mod serve;
-mod xmlgen;

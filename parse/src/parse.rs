@@ -12,7 +12,7 @@ use crate::error::{ErrorKind::*, Result};
 use crate::traits::*;
 
 pub fn parse_meta<'p>(src: &'p str) -> Result<Meta<'p>> {
-    let mut ast = DocumentParser::parse(Rule::Document, src).map_err(SyntaxError)?;
+    let mut ast = DocumentParser::parse(Rule::Header, src).map_err(SyntaxError)?;
     Meta::parse(&mut ast)
 }
 

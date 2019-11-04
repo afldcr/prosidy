@@ -4,38 +4,54 @@ This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at https://mozilla.org/MPL/2.0/.
 -->
-<xsd:schema xmlns:p="https://prosidy.org/schema/prosidy.xsd" xmlns:xsd="http://www.w3.org/2001/XMLSchema" targetNamespace="https://prosidy.org/schema/prosidy.xsd" elementFormDefault="qualified">
+<xsd:schema xmlns:p="https://prosidy.org/schema/prosidy.xsd" xmlns:xsd="http://www.w3.org/2001/XMLSchema" targetNamespace="https://prosidy.org/schema/prosidy.xsd" elementFormDefault="qualified" attributeFormDefault="qualified">
     <xsd:complexType name="documentBody">
         <xsd:choice minOccurs="0" maxOccurs="unbounded">
             <xsd:element ref="p:paragraph" />
-            <xsd:element ref="p:literal" />
-            <xsd:element ref="p:literal-span" />
-            <xsd:any namespace="##other" />
+            <xsd:any namespace="##local" />
         </xsd:choice>
-        <xsd:attribute name="title" form="qualified" type="xsd:string" />
-        <xsd:anyAttribute namespace="##other" />
+        <xsd:attribute name="title" type="xsd:string" />
+        <xsd:anyAttribute namespace="##local" processContents="lax" />
     </xsd:complexType>
 
     <xsd:complexType name="blockContent">
         <xsd:choice minOccurs="0" maxOccurs="unbounded">
-            <xsd:any namespace="##other" />
+            <xsd:element ref="p:literal" />
+            <xsd:any namespace="##local" />
         </xsd:choice>
     </xsd:complexType>
 
     <xsd:complexType name="inlineContent" mixed="true">
         <xsd:choice minOccurs="0" maxOccurs="unbounded">
-            <xsd:any namespace="##other" />
+            <xsd:element ref="p:softbreak" />
+            <xsd:element ref="p:literal" />
+            <xsd:any namespace="##local" />
         </xsd:choice>
     </xsd:complexType>
 
+    <xsd:complexType name="manifestContent">
+        <xsd:choice minOccurs="1" maxOccurs="unbounded">
+            <xsd:element ref="p:item" />
+        </xsd:choice>
+    </xsd:complexType>
+
+    <xsd:complexType name="itemType">
+        <xsd:attribute name="title" type="xsd:string" />
+        <xsd:attribute name="path" type="xsd:path" />
+        <xsd:anyAttribute namespace="##local" processContents="lax" />
+    </xsd:complexType>
+
+    <xsd:element name="document" type="p:documentBody" />
+
+    <xsd:element name="item" type="p:itemType" />
+
     <xsd:element name="literal" type="xsd:string" />
 
-    <xsd:element name="literal-span" type="xsd:string" />
+    <xsd:element name="manifest" type="p:manifestContent" />
 
     <xsd:element name="paragraph" type="p:inlineContent" />
 
-    <xsd:element name="document" type="p:documentBody" />
+    <xsd:element name="softbreak">
+        <xsd:complexType />
+    </xsd:element>
 </xsd:schema>
-<!--
-vim: ft=xsd
--->

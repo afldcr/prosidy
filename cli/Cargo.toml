@@ -4,7 +4,7 @@
 
 [package]
 name = "prosidy-cli"
-version = "0.2.3"
+version = "0.3.0"
 authors = ["Alex Feldman-Crough <alex@fldcr.com>"]
 edition = "2018"
 license = "MPL-2.0"
@@ -24,12 +24,13 @@ thiserror = "1.0"
 serde = "1.0"
 serde_json = "1.0"
 serde_cbor = "0.10"
-xml-rs = "0.8"
 
 # Server dependencies
 lazy_static = { version = "1.4", optional = true }
 mime = { version = "0.3", optional = true }
+futures-preview = { version="=0.3.0-alpha.19", optional = true }
 tokio = { version = "=0.2.0-alpha.6", optional = true }
+tokio-fs = { version = "=0.2.0-alpha.6", optional = true }
 hyper = { version = "=0.13.0-alpha.4", optional = true }
 base64 = "0.11"
 sha2 = "0.8"
@@ -44,4 +45,4 @@ path = "../prosidy"
 
 [features]
 default = ["async"]
-async = ["hyper", "mime", "tokio", "lazy_static", "phf"]
+async = ["hyper", "mime", "tokio", "tokio-fs", "lazy_static", "futures-preview", "phf"]

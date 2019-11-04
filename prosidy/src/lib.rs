@@ -7,3 +7,5 @@
 pub use ast::{self, Block, BlockTag, Document, Inline, InlineTag, Key, Literal, Meta, Tag, Text};
 #[doc(inline)]
 pub use parse;
+#[doc(inline)]
+pub use xml;

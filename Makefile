@@ -4,8 +4,8 @@
 
 include .make/*.makefile
 
-PROSIDY_FLAGS ?= --xmlns pm https://prosidy.org/schema/prosidy-manual.xsd --xslt style/manual.xsl
-SERVE_FLAGS ?= --cache --validate --log-level info --xmlns pm https://prosidy.org/schema/prosidy-manual.xsd --xslt /style/manual.xsl
+PROSIDY_FLAGS ?= --xmlns https://prosidy.org/schema/prosidy-manual.xsd --xslt style/manual.xsl
+SERVE_FLAGS ?= --cache --validate --log-level info --xmlns https://prosidy.org/schema/prosidy-manual.xsd --xslt /style/manual.xsl
 
 manual_prosidy_srcs := $(wildcard manual/*.pro)
 manual_xmls         := $(manual_prosidy_srcs:%.pro=target/%.xml)

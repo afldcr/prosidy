@@ -15,6 +15,10 @@ license = "MPL-2.0"
 path = "../ast"
 package = "prosidy-ast"
 
+[dependencies.xml]
+path = "../xml"
+package = "prosidy-xml"
+
 [dependencies.parse]
 path = "../parse"
 package = "prosidy-parse"

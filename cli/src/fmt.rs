@@ -7,12 +7,11 @@ use std::io::Write;
 
 use anyhow::Result;
 use clap::{App, Arg, ArgMatches};
-use prosidy::Document;
-use xml::namespace::Namespace;
-use xml::EmitterConfig;
+use prosidy::xml::{self, XML};
+use prosidy::xml::quick_xml::{events::Event, events::BytesDecl, events::BytesText};
+use serde::Serialize;
 
 use crate::args::{AppExt, FromArgs};
-use crate::xmlgen::XMLGen;
 
 #[derive(Clone, Debug)]
 pub struct Format {
@@ -21,8 +20,8 @@ pub struct Format {
 }
 
 impl Format {
-    pub fn write<W: Write>(&self, writer: W, document: &Document) -> Result<()> {
-        self.kind.write(&self.opts, writer, document)
+    pub fn write<S: Serialize + XML, W: Write>(&self, writer: W, value: &S) -> Result<()> {
+        self.kind.write(&self.opts, writer, value)
     }
 }
 
@@ -46,11 +45,11 @@ pub enum FormatKind {
 }
 
 impl FormatKind {
-    pub fn write<W: Write>(self, opts: &FormatOpts, writer: W, document: &Document) -> Result<()> {
+    pub fn write<S: Serialize + XML, W: Write>(self, opts: &FormatOpts, writer: W, value: &S) -> Result<()> {
         match self {
-            FormatKind::CBOR    => opts.write_cbor(writer, document),
-            FormatKind::JSON    => opts.write_json(writer, document),
-            FormatKind::XML     => opts.write_xml(writer, document),
+            FormatKind::CBOR => opts.write_cbor(writer, value),
+            FormatKind::JSON => opts.write_json(writer, value),
+            FormatKind::XML  => opts.write_xml(writer, value),
         }
     }
 
@@ -94,50 +93,60 @@ impl FromArgs for FormatKind {
 #[derive(Clone, Debug)]
 pub struct FormatOpts {
     json_pretty: bool,
-    xml_namespace: Option<XmlNS>,
+    xml_namespace: Option<String>,
     xml_stylesheets: Vec<String>,
 }
 
 impl FormatOpts {
-    pub fn write_cbor<W: Write>(&self, writer: W, document: &Document) -> Result<()> {
-        serde_cbor::to_writer(writer, document)?;
+    pub fn write_cbor<S: Serialize, W: Write>(&self, writer: W, value: &S) -> Result<()> {
+        serde_cbor::to_writer(writer, value)?;
         Ok(())
     }
 
-
-    pub fn write_json<W: Write>(&self, mut writer: W, document: &Document) -> Result<()> {
+    pub fn write_json<S: Serialize, W: Write>(&self, mut writer: W, value: &S) -> Result<()> {
         if self.json_pretty {
-            serde_json::to_writer_pretty(&mut writer, document)?;
+            serde_json::to_writer_pretty(&mut writer, value)?;
         } else {
-            serde_json::to_writer(&mut writer, document)?;
+            serde_json::to_writer(&mut writer, value)?;
         }
         writer.write_all(b"\n")?;
         Ok(())
     }
 
-    pub fn write_xml<W: Write>(&self, mut writer: W, document: &Document) -> Result<()> {
-        let mut namespace = Namespace::empty();
-        namespace.put(PROSIDY_PREFIX, PROSIDY_URI);
-        let prefix = self.xml_namespace.as_ref().map(|xmlns| {
-            namespace.put(&xmlns.prefix, &xmlns.uri);
-            xmlns.prefix.as_str()
-        });
-        let mut event_writer = EmitterConfig {
-            autopad_comments: true,
-            cdata_to_characters: false,
-            indent_string: Default::default(),
-            keep_element_names_stack: true,
-            line_separator: Default::default(),
-            normalize_empty_elements: true,
-            perform_escaping: true,
-            perform_indent: false,
-            write_document_declaration: true,
-        }.create_writer(&mut writer);
-        let stylesheets = self.xml_stylesheets.iter().map(String::as_str);
-        for event in XMLGen::new(document, &namespace, stylesheets, prefix) {
-            event_writer.write(event)?;
+    pub fn write_xml<S: XML, W: Write>(&self, writer: W, value: &S) -> Result<()> {
+        let mut writer = xml::quick_xml::Writer::new(writer);
+        // first, write the XML declaration
+        let decl = BytesDecl::new(b"1.0", Some(b"UTF-8"), None);
+        writer.write_event(Event::Decl(decl))?;
+        // next, write all of the stylesheet instructions as pre-processor events
+        for stylesheet in self.xml_stylesheets.iter() {
+            let contents = format!(
+                r#"xml-stylesheet type="text/xsl" href="{}""#,
+                stylesheet,
+            );
+            let event = BytesText::from_escaped_str(&contents);
+            writer.write_event(Event::PI(event))?;
         }
-        writer.write_all(b"\n")?;
+        // now, create a callback hook for writing events into the writer.
+        let mut first = true;
+        let mut handle = |mut event: Event| {
+            if first {
+                first = false;
+                let start = match event {
+                    Event::Start(ref mut start) => start,
+                    Event::Empty(ref mut empty) => empty,
+                    _ => panic!("The first emitted XML event was not a tag"),
+                };
+                if let Some(ref ns) = self.xml_namespace {
+                    start.push_attribute(("xmlns", ns.as_str()));
+                }
+                start.push_attribute(("xmlns:prosidy", PROSIDY_URI));
+            }
+            writer.write_event(event).map(|_| ())
+        };
+        value.to_events(&mut handle)?;
+        writer.write_event(Event::Eof)?;
+        writer.into_inner().write_all(b"\n")?;
         Ok(())
     }
 }
@@ -148,6 +157,11 @@ impl FromArgs for FormatOpts {
             .help("Pretty prints JSON output")
             .long("pretty")
             .short("p");
+        let xmlns = Arg::with_name(ARG_XMLNS)
+            .help("Assign a namespace to non-Prosidy tags in the document")
+            .long("xmlns")
+            .short("N")
+            .value_name("NAMESPACE URI");
         let xslt = Arg::with_name(ARG_XSLT)
             .help("Attach one or more XSLT stylesheets to the XML output")
             .long("xslt")
@@ -155,7 +169,7 @@ impl FromArgs for FormatOpts {
             .value_name("STYLESHEET")
             .number_of_values(1)
             .multiple(true);
-        app.arg(json_pretty).arg(xslt).register::<Option<XmlNS>>()
+        app.arg(json_pretty).arg(xslt).arg(xmlns)
     }
 
     fn parse_args(matches: &ArgMatches) -> Result<Self> {
@@ -164,56 +178,14 @@ impl FromArgs for FormatOpts {
             .values_of(ARG_XSLT)
             .into_iter()
             .flatten()
-            .map(|s| {
-                format! {
-                    r#"type="text/xsl" href="{}""#,
-                    xml::escape::escape_str_attribute(s),
-                }
-            })
+            .map(String::from)
             .collect();
-        let xml_namespace = Option::parse_args(matches)?;
+        let xml_namespace = matches.value_of(ARG_XMLNS).map(String::from);
         Ok(FormatOpts {
             json_pretty,
             xml_stylesheets,
             xml_namespace,
         })
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct XmlNS {
-    prefix: String,
-    uri: String,
-}
-
-impl FromArgs for Option<XmlNS> {
-    fn register_args<'a, 'b>(app: App<'a, 'b>) -> App<'a, 'b> {
-        let arg = Arg::with_name(ARG_XMLNS)
-            .help("Set the XML namespace prefix and URI to apply to all nodes")
-            .long("xmlns")
-            .short("N")
-            .value_names(&["prefix", "uri"]);
-        app.arg(arg)
-    }
-
-    fn parse_args(matches: &ArgMatches) -> Result<Self> {
-        if let Some(mut values) = matches.values_of(ARG_XMLNS) {
-            let prefix = values.next().unwrap();
-            if prefix == PROSIDY_PREFIX {
-                anyhow::bail!(
-                    "The namespace prefix 'prosidy' is reserved; \
-                     please choose a different namespace."
-                );
-            }
-            let uri = values.next().unwrap();
-            debug_assert!(values.next().is_none());
-            Ok(Some(XmlNS {
-                prefix: prefix.into(),
-                uri: uri.into(),
-            }))
-        } else {
-            Ok(None)
-        }
     }
 }
 
@@ -226,5 +198,4 @@ const ARG_JSON_PRETTY: &str = "json-pretty-print";
 const ARG_XMLNS: &str = "xmlns";
 const ARG_XSLT: &str = "xslt";
 
-const PROSIDY_PREFIX: &str = "prosidy";
 const PROSIDY_URI: &str = "https://prosidy.org/schema/prosidy.xsd";
