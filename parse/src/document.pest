@@ -43,7 +43,11 @@ Block = _{
 BlockTag = ${
       Key
     ~ ("[" ~ Props? ~ "]")?
-    ~ ( (":" ~ TrailingWS ~ Block* ~ "#:")
+    ~ ( (PUSH(":" ~ (!WHITE_SPACE ~ ANY)*)
+         ~ TrailingWS
+         ~ Block*
+         ~ "#"
+         ~ POP)
       | ("{" ~ Paragraph? ~ "}")
       )?
 }

@@ -69,6 +69,15 @@ fn expected() -> Document<'static> {
                 .into()],
             )
             .into(),
+            BlockTag::new(
+                "named-end",
+                props!(),
+                vec![
+                    Block::Content(vec![
+                        Text::new("This block has a named start/end delimiter.").into(),
+                    ]),
+                ],
+            ).into(),
             Tag::new(
                 "lit",
                 props!(),
