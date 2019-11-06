@@ -24,6 +24,10 @@ title: Tags
     #:
 #:
 
+#-named-end:end-block
+    This block has a named start/end delimiter.
+#:end-block
+
 #+lit:end
 #this{isn't} valid at all!
 #:
