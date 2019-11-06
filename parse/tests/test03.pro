@@ -28,19 +28,19 @@ title: Tags
     This block has a named start/end delimiter.
 #:end-block
 
-#+lit:end
+#=lit:end
 #this{isn't} valid at all!
 #:
 #:
 #:
 #:end
 
-#+lit[flag, withprops='true']:
+#=lit[flag, withprops='true']:
     this literal has properties!
 #:
 
 #-content:
-    #+lit:
+    #=lit:
         Literals can be nested!
     #:
 #:

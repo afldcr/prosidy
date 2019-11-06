@@ -19,8 +19,8 @@ title: Empty forms
 #inline{}
 #inline[]{}
 
-#+lit:
+#=lit:
 #:
 
-#+lit[]:
+#=lit[]:
 #:

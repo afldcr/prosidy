@@ -36,7 +36,7 @@ DocumentPropValue = { HeaderText }
 //
 
 Block = _{
-      (("#-" ~ BlockTag) | ("#+" ~ LiteralTag) | (!"#:" ~ Paragraph))
+      (("#-" ~ BlockTag) | ("#=" ~ LiteralTag) | (!"#:" ~ Paragraph))
     ~ TrailingWS
 }
 
@@ -161,10 +161,13 @@ KeyReserved = _ {
     | "\"" | ","
 }
 
+// FIXME: I haven't fully decided if I should even restrict this. XML requires
+// tags to start with underscore or a word char, but as much as XML inspired
+// Prosidy's AST I'm not sure some of it's arbitrary syntax rules are a good
+// fit.
 KeyInitReserved = _ {
     KeyReserved
     | '1' .. '9'
-    | "+"
     | "-"
 }
 
