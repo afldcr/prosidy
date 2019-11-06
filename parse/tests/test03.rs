@@ -10,7 +10,7 @@ use prosidy_parse::{parse_document, Result};
 const SOURCE: &str = include_str!("test03.pro");
 
 #[test]
-fn test_escape() -> Result<()> {
+fn test_tags() -> Result<()> {
     let actual = parse_document(SOURCE)?;
     assert_eq!(actual, expected());
     Ok(())
