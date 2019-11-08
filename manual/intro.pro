@@ -21,7 +21,7 @@ and lets you add as much or as little metadata as you'd like.
 
 This introduction, in #prosidy, looks like this:
 
-#-example[syntax='prosidy']:
+#=example[syntax='prosidy']:
 An introduction to Prosidy
 author: James Alexander Feldman-Crough
 lang: en
