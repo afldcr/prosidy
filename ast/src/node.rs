@@ -41,7 +41,6 @@ impl<'r, 'a> Node<'r, 'a> {
                 }
             }
             Node::Inline(Inline::SoftBreak)
-            | Node::Inline(Inline::Literal(_))
             | Node::Inline(Inline::Text(_))
             | Node::Block(Block::Literal(_)) => {}
         }
