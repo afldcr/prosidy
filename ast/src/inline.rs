@@ -5,7 +5,6 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::literal::Literal;
 use crate::tag::InlineTag;
 use crate::types::Text;
 
@@ -17,8 +16,6 @@ pub enum Inline<'a> {
     Tag(InlineTag<'a>),
     #[serde(borrow)]
     Text(Text<'a>),
-    #[serde(borrow)]
-    Literal(Literal<'a>),
 }
 
 impl<'a> Inline<'a> {

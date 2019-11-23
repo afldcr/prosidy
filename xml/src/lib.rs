@@ -73,7 +73,6 @@ impl<'p> XML for Inline<'p> {
     {
         match self {
             Inline::Tag(tag) => tag.to_events(emit),
-            Inline::Literal(lit) => lit.to_events(emit),
             Inline::Text(text) => {
                 let text = BytesText::from_plain_str(&text);
                 emit(Event::Text(text))
